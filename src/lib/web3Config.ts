@@ -1,6 +1,7 @@
 
 import { createConfig, configureChains } from 'wagmi';
 import { mainnet, goerli, sepolia, polygonMumbai, polygon, arbitrum, optimism, bsc } from 'wagmi/chains';
+import { publicProvider } from 'wagmi/providers/public';
 import { jsonRpcProvider } from 'wagmi/providers/jsonRpc';
 import { MetaMaskConnector } from 'wagmi/connectors/metaMask';
 import { WalletConnectConnector } from 'wagmi/connectors/walletConnect';
@@ -30,15 +31,17 @@ const getRpcUrl = (chainId: number) => {
   }
 };
 
-// Configure chains for app with properly typed provider
+// Configure chains for app
 export const { chains, publicClient } = configureChains(
   [mainnet, goerli, sepolia, polygon, polygonMumbai, arbitrum, optimism, bsc],
   [
+    // Use public provider as fallback to ensure we always have connectivity
+    publicProvider(),
     jsonRpcProvider({
       rpc: (chain) => ({
         http: getRpcUrl(chain.id),
       }),
-    }) as any, // Using type assertion to resolve the type conflict
+    }),
   ]
 );
 
@@ -46,12 +49,12 @@ export const { chains, publicClient } = configureChains(
 export const wagmiConfig = createConfig({
   autoConnect: true,
   connectors: [
-    new MetaMaskConnector({ chains }),
-    new WalletConnectConnector({
+    new MetaMaskConnector({ 
       chains,
       options: {
-        projectId: 'YOUR_PROJECT_ID', // Replace with actual project ID if needed
-      },
+        shimDisconnect: true,
+        UNSTABLE_shimOnConnectSelectAccount: true,
+      }
     }),
     new CoinbaseWalletConnector({
       chains,

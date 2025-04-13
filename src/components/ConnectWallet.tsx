@@ -3,6 +3,8 @@ import React from 'react';
 import { useAccount, useConnect, useDisconnect, useEnsName } from 'wagmi';
 import { Button } from '@/components/ui/button';
 import { shortenAddress } from '@/lib/contractUtils';
+import { Wallet } from 'lucide-react';
+import { toast } from 'sonner';
 
 const ConnectWallet: React.FC = () => {
   const { address, isConnected } = useAccount();
@@ -10,10 +12,23 @@ const ConnectWallet: React.FC = () => {
   const { connect, connectors, error, isLoading: isPending } = useConnect();
   const { disconnect } = useDisconnect();
 
-  // Find MetaMask connector
-  const metamaskConnector = connectors.find(
-    (connector) => connector.name === 'MetaMask'
-  );
+  // Find available connectors
+  const availableConnector = connectors.find(connector => connector.ready);
+
+  // Handle connect click
+  const handleConnect = async () => {
+    if (!availableConnector) {
+      toast.error("No wallet connectors available. Please install MetaMask or another wallet");
+      return;
+    }
+    
+    try {
+      connect({ connector: availableConnector });
+    } catch (err) {
+      console.error("Connection error:", err);
+      toast.error("Failed to connect wallet");
+    }
+  };
 
   if (isConnected) {
     return (
@@ -35,11 +50,16 @@ const ConnectWallet: React.FC = () => {
 
   return (
     <Button
-      onClick={() => metamaskConnector && connect({ connector: metamaskConnector })}
+      onClick={handleConnect}
       disabled={isPending}
       className="cyber-button"
     >
-      {isPending ? 'Connecting...' : 'Connect Wallet'}
+      {isPending ? 'Connecting...' : (
+        <>
+          <Wallet className="w-4 h-4 mr-2" />
+          Connect Wallet
+        </>
+      )}
     </Button>
   );
 };
