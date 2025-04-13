@@ -1,15 +1,46 @@
 
 import { createConfig, configureChains } from 'wagmi';
 import { mainnet, goerli, sepolia, polygonMumbai, polygon, arbitrum, optimism, bsc } from 'wagmi/chains';
-import { publicProvider } from 'wagmi/providers/public';
+import { jsonRpcProvider } from 'wagmi/providers/jsonRpc';
 import { MetaMaskConnector } from 'wagmi/connectors/metaMask';
 import { WalletConnectConnector } from 'wagmi/connectors/walletConnect';
 import { CoinbaseWalletConnector } from 'wagmi/connectors/coinbaseWallet';
 
+// Fallback RPC URLs for each chain
+const getRpcUrl = (chainId: number) => {
+  switch (chainId) {
+    case mainnet.id:
+      return "https://eth-mainnet.g.alchemy.com/v2/demo";
+    case goerli.id:
+      return "https://eth-goerli.g.alchemy.com/v2/demo";
+    case sepolia.id:
+      return "https://eth-sepolia.g.alchemy.com/v2/demo";
+    case polygon.id:
+      return "https://polygon-mainnet.g.alchemy.com/v2/demo";
+    case polygonMumbai.id:
+      return "https://polygon-mumbai.g.alchemy.com/v2/demo";
+    case arbitrum.id:
+      return "https://arb-mainnet.g.alchemy.com/v2/demo";
+    case optimism.id:
+      return "https://opt-mainnet.g.alchemy.com/v2/demo";
+    case bsc.id:
+      return "https://bsc-dataseed.binance.org";
+    default:
+      return "https://eth-mainnet.g.alchemy.com/v2/demo";
+  }
+};
+
+// Use jsonRpcProvider instead of publicProvider for more reliability
+const customProvider = jsonRpcProvider({
+  rpc: (chain) => ({
+    http: getRpcUrl(chain.id),
+  }),
+});
+
 // Configure chains for app
 export const { chains, publicClient } = configureChains(
   [mainnet, goerli, sepolia, polygon, polygonMumbai, arbitrum, optimism, bsc],
-  [publicProvider()]
+  [customProvider]
 );
 
 // Set up wagmi config with connectors
