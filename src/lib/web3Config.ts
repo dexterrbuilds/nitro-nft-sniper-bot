@@ -3,8 +3,8 @@ import { createConfig, configureChains } from 'wagmi';
 import { mainnet, goerli, sepolia, polygonMumbai, polygon, arbitrum, optimism, bsc } from 'wagmi/chains';
 import { jsonRpcProvider } from 'wagmi/providers/jsonRpc';
 import { MetaMaskConnector } from 'wagmi/connectors/metaMask';
-import { WalletConnectConnector } from 'wagmi/connectors/walletConnect';
 import { CoinbaseWalletConnector } from 'wagmi/connectors/coinbaseWallet';
+import { ethers } from 'ethers';
 
 // Fallback RPC URLs for each chain
 const getRpcUrl = (chainId: number) => {
@@ -54,16 +54,6 @@ export const wagmiConfig = createConfig({
         UNSTABLE_shimOnConnectSelectAccount: true,
       }
     }),
-    new WalletConnectConnector({
-      chains,
-      options: {
-        projectId: "a8556aedd0715bd8201a74bfb9881b66", // This is a demo project ID
-        showQrModal: true,
-        qrModalOptions: {
-          themeMode: 'dark'
-        }
-      },
-    }),
     new CoinbaseWalletConnector({
       chains,
       options: {
@@ -73,6 +63,34 @@ export const wagmiConfig = createConfig({
   ],
   publicClient,
 });
+
+// Direct Ethers.js connection function (no WalletConnect dependency)
+export const connectWithEthers = async (): Promise<ethers.Signer | null> => {
+  try {
+    // Check if window.ethereum is available (MetaMask or similar)
+    if (window.ethereum) {
+      // Create a provider from the injected ethereum object
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      
+      // Request accounts from the user
+      await window.ethereum.request({ method: 'eth_requestAccounts' });
+      
+      // Get the signer (connected account)
+      const signer = await provider.getSigner();
+      return signer;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error connecting with ethers:', error);
+    return null;
+  }
+};
+
+// Helper to get ethers provider for a specific chain
+export const getEthersProvider = (chainId: number): ethers.JsonRpcProvider => {
+  const rpcUrl = getRpcUrl(chainId);
+  return new ethers.JsonRpcProvider(rpcUrl);
+};
 
 // Chain options for the UI
 export const chainOptions = [
