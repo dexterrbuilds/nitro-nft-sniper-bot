@@ -30,11 +30,13 @@ const getRpcUrl = (chainId: number) => {
   }
 };
 
-// Use jsonRpcProvider instead of publicProvider for more reliability
+// Use jsonRpcProvider with proper type checking
 const customProvider = jsonRpcProvider({
-  rpc: (chain) => ({
-    http: getRpcUrl(chain.id),
-  }),
+  rpc: (chain) => {
+    return {
+      http: getRpcUrl(chain.id),
+    };
+  },
 });
 
 // Configure chains for app
