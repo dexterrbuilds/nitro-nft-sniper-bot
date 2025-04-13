@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
-import { useAccount, useProvider, useSigner } from 'wagmi';
+import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { toast } from 'sonner';
 import Layout from '@/components/Layout';
 import ContractInputForm from '@/components/ContractInputForm';
@@ -15,8 +14,8 @@ import { v4 as uuidv4 } from 'uuid';
 
 const Index = () => {
   const { isConnected, address } = useAccount();
-  const signer = useSigner();
-  const provider = useProvider();
+  const { data: walletClient } = useWalletClient();
+  const publicClient = usePublicClient();
 
   // Contract state
   const [contractAddress, setContractAddress] = useState<string>('');
@@ -94,7 +93,7 @@ const Index = () => {
       const contractInstance = new ethers.Contract(
         address,
         abi,
-        signer.data || provider
+        walletClient || publicClient
       );
       
       // Extract functions from ABI
@@ -134,7 +133,7 @@ const Index = () => {
 
   // Handle function execution
   const handleExecuteFunction = async (args: any[], ethValue: string) => {
-    if (!contract || !selectedFunction || !selectedFunctionDetails) return;
+    if (!contract || !selectedFunction || !selectedFunctionDetails || !walletClient) return;
     
     setIsExecuting(true);
     

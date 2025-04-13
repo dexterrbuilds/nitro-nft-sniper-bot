@@ -73,7 +73,7 @@ export const getContractFunctions = (abi: any[]): {
       try {
         const parsed = ethers.FunctionFragment.from(item);
         const name = parsed.name;
-        const inputs = parsed.inputs.map(input => ({
+        const inputs = [...parsed.inputs].map(input => ({
           name: input.name || '',
           type: input.type,
         }));
@@ -82,7 +82,7 @@ export const getContractFunctions = (abi: any[]): {
           readFunctions.push({
             name,
             inputs,
-            outputs: parsed.outputs || [],
+            outputs: [...(parsed.outputs || [])],
           });
         } else {
           writeFunctions.push({

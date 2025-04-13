@@ -7,7 +7,7 @@ import { shortenAddress } from '@/lib/contractUtils';
 const ConnectWallet: React.FC = () => {
   const { address, isConnected } = useAccount();
   const { data: ensName } = useEnsName({ address });
-  const { connect, connectors, error, isPending } = useConnect();
+  const { connect, connectors, error, isLoading: isPending } = useConnect();
   const { disconnect } = useDisconnect();
 
   // Find MetaMask connector
