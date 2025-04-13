@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
@@ -89,12 +90,29 @@ const Index = () => {
         throw new Error('Failed to fetch contract ABI');
       }
       
-      // Create contract instance
-      const contractInstance = new ethers.Contract(
-        address,
-        abi,
-        walletClient || publicClient
+      // Create a provider instance from publicClient
+      const provider = new ethers.JsonRpcProvider(
+        publicClient.transport.url || "https://eth-mainnet.g.alchemy.com/v2/demo",
+        "any"
       );
+      
+      // Create contract instance with read-only provider
+      let contractInstance = new ethers.Contract(address, abi, provider);
+      
+      // If wallet is connected, attach signer for write operations
+      if (walletClient) {
+        // Create an ethers signer from the wallet client
+        const { account, chain } = walletClient;
+        const network = { chainId: chain.id, name: chain.name };
+        
+        const signer = new ethers.JsonRpcSigner(
+          provider,
+          account.address
+        );
+
+        // Create contract with signer
+        contractInstance = contractInstance.connect(signer);
+      }
       
       // Extract functions from ABI
       const { writeFunctions, readFunctions } = getContractFunctions(abi);
@@ -133,7 +151,7 @@ const Index = () => {
 
   // Handle function execution
   const handleExecuteFunction = async (args: any[], ethValue: string) => {
-    if (!contract || !selectedFunction || !selectedFunctionDetails || !walletClient) return;
+    if (!contract || !selectedFunction || !selectedFunctionDetails) return;
     
     setIsExecuting(true);
     
