@@ -1,10 +1,8 @@
 
 import { createConfig, configureChains } from 'wagmi';
 import { mainnet, goerli, sepolia, polygonMumbai, polygon, arbitrum, optimism, bsc } from 'wagmi/chains';
-import { publicProvider } from 'wagmi/providers/public';
 import { jsonRpcProvider } from 'wagmi/providers/jsonRpc';
 import { MetaMaskConnector } from 'wagmi/connectors/metaMask';
-import { WalletConnectConnector } from 'wagmi/connectors/walletConnect';
 import { CoinbaseWalletConnector } from 'wagmi/connectors/coinbaseWallet';
 
 // Fallback RPC URLs for each chain
@@ -31,12 +29,11 @@ const getRpcUrl = (chainId: number) => {
   }
 };
 
-// Configure chains for app
+// Configure chains for app using only jsonRpcProvider
 export const { chains, publicClient } = configureChains(
   [mainnet, goerli, sepolia, polygon, polygonMumbai, arbitrum, optimism, bsc],
   [
-    // Use public provider as fallback to ensure we always have connectivity
-    publicProvider(),
+    // Use only jsonRpcProvider instead of publicProvider to avoid the error
     jsonRpcProvider({
       rpc: (chain) => ({
         http: getRpcUrl(chain.id),
