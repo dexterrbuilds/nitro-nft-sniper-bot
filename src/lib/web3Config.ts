@@ -3,6 +3,7 @@ import { createConfig, configureChains } from 'wagmi';
 import { mainnet, goerli, sepolia, polygonMumbai, polygon, arbitrum, optimism, bsc } from 'wagmi/chains';
 import { jsonRpcProvider } from 'wagmi/providers/jsonRpc';
 import { MetaMaskConnector } from 'wagmi/connectors/metaMask';
+import { WalletConnectConnector } from 'wagmi/connectors/walletConnect';
 import { CoinbaseWalletConnector } from 'wagmi/connectors/coinbaseWallet';
 
 // Fallback RPC URLs for each chain
@@ -52,6 +53,16 @@ export const wagmiConfig = createConfig({
         shimDisconnect: true,
         UNSTABLE_shimOnConnectSelectAccount: true,
       }
+    }),
+    new WalletConnectConnector({
+      chains,
+      options: {
+        projectId: "a8556aedd0715bd8201a74bfb9881b66", // This is a demo project ID
+        showQrModal: true,
+        qrModalOptions: {
+          themeMode: 'dark'
+        }
+      },
     }),
     new CoinbaseWalletConnector({
       chains,
