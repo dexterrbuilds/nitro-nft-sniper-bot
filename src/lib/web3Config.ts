@@ -30,19 +30,16 @@ const getRpcUrl = (chainId: number) => {
   }
 };
 
-// Use jsonRpcProvider with proper type checking
-const customProvider = jsonRpcProvider({
-  rpc: (chain) => {
-    return {
-      http: getRpcUrl(chain.id),
-    };
-  },
-});
-
-// Configure chains for app
+// Configure chains for app with properly typed provider
 export const { chains, publicClient } = configureChains(
   [mainnet, goerli, sepolia, polygon, polygonMumbai, arbitrum, optimism, bsc],
-  [customProvider]
+  [
+    jsonRpcProvider({
+      rpc: (chain) => ({
+        http: getRpcUrl(chain.id),
+      }),
+    }) as any, // Using type assertion to resolve the type conflict
+  ]
 );
 
 // Set up wagmi config with connectors
