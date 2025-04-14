@@ -12,6 +12,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { fetchContractABI, getContractFunctions, parseEth } from '@/lib/contractUtils';
 import { v4 as uuidv4 } from 'uuid';
 import { getEthersProvider } from '@/lib/web3Config';
+import { Info } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const Index = () => {
   const { isConnected, address } = useAccount();
@@ -74,6 +76,9 @@ const Index = () => {
     }
   }, [selectedFunction, writeFunctions]);
 
+  // Add a new state for contract name
+  const [contractName, setContractName] = useState<string | null>(null);
+  
   // Handle loading contract data
   const handleLoadContract = async (address: string, chain: number) => {
     setIsLoadingContract(true);
@@ -91,6 +96,14 @@ const Index = () => {
       // Create contract instance with read-only provider
       const contractInstance = new ethers.Contract(address, abi, provider);
       
+      // Try to fetch contract name
+      let name = 'Unknown Contract';
+      try {
+        name = await contractInstance.name();
+      } catch (e) {
+        console.log('Could not fetch contract name');
+      }
+      
       // Extract functions from ABI
       const { writeFunctions, readFunctions } = getContractFunctions(abi);
       
@@ -100,6 +113,7 @@ const Index = () => {
       setContract(contractInstance);
       setWriteFunctions(writeFunctions);
       setReadFunctions(readFunctions);
+      setContractName(name);
       
       // Select a default function if available (preferably a mint function)
       const mintFunction = writeFunctions.find(f => 
@@ -117,7 +131,7 @@ const Index = () => {
       // Save to local storage
       localStorage.setItem('nitro-nft-last-contract', JSON.stringify({ address, chainId: chain }));
       
-      toast.success('Contract loaded successfully');
+      toast.success(`Contract loaded: ${name}`);
     } catch (error) {
       console.error('Error loading contract:', error);
       toast.error('Failed to load contract');
@@ -260,9 +274,27 @@ const Index = () => {
             <CardHeader>
               <CardTitle className="text-xl font-mono">
                 {contractAddress ? (
-                  <span>
-                    Contract <span className="text-cyber-accent">{contractAddress.slice(0, 6)}...{contractAddress.slice(-4)}</span>
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span>
+                      {contractName || 'Contract'}{' '}
+                      <span className="text-cyber-accent">
+                        {contractAddress.slice(0, 6)}...{contractAddress.slice(-4)}
+                      </span>
+                    </span>
+                    {contractName && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <Info size={16} className="text-muted-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Contract Name: {contractName}</p>
+                            <p>Address: {contractAddress}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                  </div>
                 ) : (
                   "Contract Interaction"
                 )}
