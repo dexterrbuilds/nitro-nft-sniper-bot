@@ -14,6 +14,8 @@ interface FunctionFormProps {
   functionDetails: { name: string; inputs: any[]; payable: boolean };
   onSubmit: (args: any[], value: string) => void;
   isLoading: boolean;
+  walletRequired?: boolean;
+  walletConnected?: boolean;
 }
 
 const FunctionForm: React.FC<FunctionFormProps> = ({
@@ -21,6 +23,8 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
   functionDetails,
   onSubmit,
   isLoading,
+  walletRequired = false,
+  walletConnected = false,
 }) => {
   const { address } = useAccount();
   const { data: balance } = useBalance({ address });
@@ -124,6 +128,12 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
       }
     }
     
+    // Validate wallet connection if required
+    if (walletRequired && !walletConnected) {
+      toast.error('Please connect your wallet to execute this function');
+      return;
+    }
+    
     onSubmit(args, ethValue);
   };
 
@@ -197,9 +207,10 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
       <Button 
         type="submit" 
         className="w-full cyber-button font-mono mt-6"
-        disabled={isLoading} 
+        disabled={isLoading || (walletRequired && !walletConnected)} 
       >
         {isLoading ? 'Processing...' : `Execute ${functionName}`}
+        {walletRequired && !walletConnected && ' (Connect Wallet)'}
       </Button>
     </form>
   );

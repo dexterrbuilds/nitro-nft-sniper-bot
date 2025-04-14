@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
@@ -92,34 +91,13 @@ const Index = () => {
       // Create contract instance with read-only provider
       const contractInstance = new ethers.Contract(address, abi, provider);
       
-      // If wallet is connected, create a connected contract with signer
-      let connectedContract = contractInstance;
-      
-      if (isConnected && walletClient) {
-        try {
-          // Create an ethers signer from the wallet client
-          const { account } = walletClient;
-          
-          const signer = new ethers.JsonRpcSigner(
-            provider,
-            account.address
-          );
-
-          // Create contract with signer
-          connectedContract = contractInstance.connect(signer);
-        } catch (e) {
-          console.error("Failed to connect contract with wallet:", e);
-          // Continue with read-only contract
-        }
-      }
-      
       // Extract functions from ABI
       const { writeFunctions, readFunctions } = getContractFunctions(abi);
       
       setContractAddress(address);
       setChainId(chain);
       setContractABI(abi);
-      setContract(connectedContract);
+      setContract(contractInstance);
       setWriteFunctions(writeFunctions);
       setReadFunctions(readFunctions);
       
