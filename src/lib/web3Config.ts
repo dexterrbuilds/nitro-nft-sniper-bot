@@ -5,7 +5,8 @@ import { jsonRpcProvider } from 'wagmi/providers/jsonRpc';
 import { MetaMaskConnector } from 'wagmi/connectors/metaMask';
 import { ethers } from 'ethers';
 import detectEthereumProvider from '@metamask/detect-provider';
-import WalletConnectProvider from '@walletconnect/web3-provider';
+// Replace with the correct WalletConnect v2 provider
+import EthereumProvider from '@walletconnect/ethereum-provider';
 
 // Fallback RPC URLs for each chain
 const getRpcUrl = (chainId: number) => {
@@ -75,6 +76,7 @@ export const connectWithMetaMask = async (): Promise<ethers.Signer | null> => {
       const signer = await ethersProvider.getSigner();
       return signer;
     }
+    console.log('No Ethereum provider detected');
     return null;
   } catch (error) {
     console.error('Error connecting with MetaMask:', error);
@@ -82,12 +84,15 @@ export const connectWithMetaMask = async (): Promise<ethers.Signer | null> => {
   }
 };
 
-// Connect with WalletConnect
+// Connect with WalletConnect using new WalletConnect v2 provider
 export const connectWithWalletConnect = async (): Promise<ethers.Signer | null> => {
   try {
-    // Initialize WalletConnect Provider
-    const wcProvider = new WalletConnectProvider({
-      rpc: {
+    // Initialize WalletConnect Provider with v2 API
+    const wcProvider = await EthereumProvider.init({
+      projectId: "952483bf48a8bff80731c419eb59d865", // WalletConnect project ID
+      chains: [1, 5, 11155111, 137, 80001, 42161, 10, 56], // Supported chains
+      showQrModal: true,
+      rpcMap: {
         1: getRpcUrl(1), // Ethereum Mainnet
         5: getRpcUrl(5), // Goerli
         11155111: getRpcUrl(11155111), // Sepolia
@@ -96,14 +101,13 @@ export const connectWithWalletConnect = async (): Promise<ethers.Signer | null> 
         42161: getRpcUrl(42161), // Arbitrum
         10: getRpcUrl(10), // Optimism
         56: getRpcUrl(56), // BSC
-      },
+      }
     });
     
     // Enable session (triggers QR Code modal)
     await wcProvider.enable();
     
     // Create ethers provider with WalletConnect
-    // Fix: In ethers v6, we need to use BrowserProvider instead of Web3Provider
     const ethersProvider = new ethers.BrowserProvider(wcProvider as any);
     const signer = await ethersProvider.getSigner();
     return signer;
@@ -124,6 +128,7 @@ export const connectWithEthers = async (): Promise<ethers.Signer | null> => {
     const wcSigner = await connectWithWalletConnect();
     if (wcSigner) return wcSigner;
     
+    console.log('No wallet detected');
     return null;
   } catch (error) {
     console.error('Error connecting with ethers:', error);
