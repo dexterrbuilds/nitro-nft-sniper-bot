@@ -23,11 +23,6 @@ const ContractInputForm: React.FC<ContractInputFormProps> = ({ onSubmit, isLoadi
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!isConnected) {
-      toast.error('Please connect your wallet first');
-      return;
-    }
-    
     if (!contractAddress) {
       toast.error('Please enter a contract address');
       return;
@@ -82,7 +77,7 @@ const ContractInputForm: React.FC<ContractInputFormProps> = ({ onSubmit, isLoadi
       <Button 
         type="submit" 
         className="w-full cyber-button"
-        disabled={isLoading || !isConnected || !contractAddress} 
+        disabled={isLoading || !contractAddress} 
       >
         {isLoading ? 'Loading...' : 'Analyze Contract'}
       </Button>

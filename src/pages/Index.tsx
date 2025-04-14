@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
@@ -11,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { fetchContractABI, getContractFunctions, parseEth } from '@/lib/contractUtils';
 import { v4 as uuidv4 } from 'uuid';
+import { getEthersProvider } from '@/lib/web3Config';
 
 const Index = () => {
   const { isConnected, address } = useAccount();
@@ -49,14 +51,14 @@ const Index = () => {
     if (lastContract) {
       try {
         const { address, chainId } = JSON.parse(lastContract);
-        if (address && chainId && isConnected) {
+        if (address && chainId) {
           handleLoadContract(address, chainId);
         }
       } catch (e) {
         console.error('Failed to restore last contract');
       }
     }
-  }, [isConnected]);
+  }, []);
   
   // Save transactions to local storage when they change
   useEffect(() => {
@@ -75,11 +77,6 @@ const Index = () => {
 
   // Handle loading contract data
   const handleLoadContract = async (address: string, chain: number) => {
-    if (!isConnected) {
-      toast.error('Please connect your wallet first');
-      return;
-    }
-    
     setIsLoadingContract(true);
     
     try {
@@ -89,28 +86,31 @@ const Index = () => {
         throw new Error('Failed to fetch contract ABI');
       }
       
-      // Create a provider instance from publicClient
-      const provider = new ethers.JsonRpcProvider(
-        publicClient.transport.url || "https://eth-mainnet.g.alchemy.com/v2/demo",
-        "any"
-      );
+      // Create a read-only provider for the selected chain
+      const provider = getEthersProvider(chain);
       
-      // Create contract instance with read-only provider - explicitly type as ethers.Contract
-      const contractInstance: ethers.Contract = new ethers.Contract(address, abi, provider);
+      // Create contract instance with read-only provider
+      const contractInstance = new ethers.Contract(address, abi, provider);
       
-      // If wallet is connected, attach signer for write operations
+      // If wallet is connected, create a connected contract with signer
       let connectedContract = contractInstance;
-      if (walletClient) {
-        // Create an ethers signer from the wallet client
-        const { account } = walletClient;
-        
-        const signer = new ethers.JsonRpcSigner(
-          provider,
-          account.address
-        );
+      
+      if (isConnected && walletClient) {
+        try {
+          // Create an ethers signer from the wallet client
+          const { account } = walletClient;
+          
+          const signer = new ethers.JsonRpcSigner(
+            provider,
+            account.address
+          );
 
-        // Create contract with signer - ensure we maintain the ethers.Contract type
-        connectedContract = contractInstance.connect(signer) as ethers.Contract;
+          // Create contract with signer
+          connectedContract = contractInstance.connect(signer);
+        } catch (e) {
+          console.error("Failed to connect contract with wallet:", e);
+          // Continue with read-only contract
+        }
       }
       
       // Extract functions from ABI
@@ -150,7 +150,15 @@ const Index = () => {
 
   // Handle function execution
   const handleExecuteFunction = async (args: any[], ethValue: string) => {
-    if (!contract || !selectedFunction || !selectedFunctionDetails) return;
+    if (!contract || !selectedFunction || !selectedFunctionDetails) {
+      toast.error('Contract not loaded or function not selected');
+      return;
+    }
+    
+    if (!isConnected) {
+      toast.error('Please connect your wallet to execute transactions');
+      return;
+    }
     
     setIsExecuting(true);
     
@@ -256,6 +264,11 @@ const Index = () => {
           <Card className="cyber-panel bg-cyber-dark border-cyber-accent/30">
             <CardHeader>
               <CardTitle className="text-lg font-mono">Transaction History</CardTitle>
+              {!isConnected && (
+                <CardDescription className="text-amber-500">
+                  Connect wallet to execute transactions
+                </CardDescription>
+              )}
             </CardHeader>
             <CardContent>
               <TransactionHistory transactions={transactions} />
@@ -279,6 +292,11 @@ const Index = () => {
               {contractAddress && (
                 <CardDescription>
                   {writeFunctions.length} write functions, {readFunctions.length} read functions found
+                  {!isConnected && (
+                    <span className="block mt-1 text-amber-500">
+                      Connect wallet to execute functions
+                    </span>
+                  )}
                 </CardDescription>
               )}
             </CardHeader>
@@ -309,6 +327,8 @@ const Index = () => {
                         functionDetails={selectedFunctionDetails}
                         onSubmit={handleExecuteFunction}
                         isLoading={isExecuting}
+                        walletRequired={true}
+                        walletConnected={isConnected}
                       />
                     )}
                   </TabsContent>
