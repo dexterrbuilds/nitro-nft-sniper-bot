@@ -34,13 +34,11 @@ const ConnectWallet: React.FC = () => {
         return;
       }
       
-      // If ethers direct connection failed, try wagmi connectors
-      const readyConnectors = connectors.filter(connector => connector.ready);
+      // If ethers direct connection failed, try wagmi MetaMask connector
+      const metaMask = connectors.find(c => c.id === 'metaMask');
       
-      if (readyConnectors.length > 0) {
-        // Prefer MetaMask if available
-        const metaMask = readyConnectors.find(c => c.id === 'metaMask');
-        connect({ connector: metaMask || readyConnectors[0] });
+      if (metaMask && metaMask.ready) {
+        connect({ connector: metaMask });
       } else {
         toast.error("No wallet detected. Please install MetaMask or another Ethereum wallet");
       }

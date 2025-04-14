@@ -1,9 +1,7 @@
-
 import { createConfig, configureChains } from 'wagmi';
 import { mainnet, goerli, sepolia, polygonMumbai, polygon, arbitrum, optimism, bsc } from 'wagmi/chains';
 import { jsonRpcProvider } from 'wagmi/providers/jsonRpc';
 import { MetaMaskConnector } from 'wagmi/connectors/metaMask';
-import { CoinbaseWalletConnector } from 'wagmi/connectors/coinbaseWallet';
 import { ethers } from 'ethers';
 
 // Fallback RPC URLs for each chain
@@ -43,7 +41,7 @@ export const { chains, publicClient } = configureChains(
   ]
 );
 
-// Set up wagmi config with connectors
+// Set up wagmi config with only MetaMask connector
 export const wagmiConfig = createConfig({
   autoConnect: true,
   connectors: [
@@ -53,12 +51,6 @@ export const wagmiConfig = createConfig({
         shimDisconnect: true,
         UNSTABLE_shimOnConnectSelectAccount: true,
       }
-    }),
-    new CoinbaseWalletConnector({
-      chains,
-      options: {
-        appName: 'Nitro NFT Sniper',
-      },
     }),
   ],
   publicClient,
