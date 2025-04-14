@@ -103,8 +103,9 @@ export const connectWithWalletConnect = async (): Promise<ethers.Signer | null> 
     await wcProvider.enable();
     
     // Create ethers provider with WalletConnect
-    const ethersProvider = new ethers.Web3Provider(wcProvider as any);
-    const signer = ethersProvider.getSigner();
+    // Fix: In ethers v6, we need to use BrowserProvider instead of Web3Provider
+    const ethersProvider = new ethers.BrowserProvider(wcProvider as any);
+    const signer = await ethersProvider.getSigner();
     return signer;
   } catch (error) {
     console.error('Error connecting with WalletConnect:', error);
