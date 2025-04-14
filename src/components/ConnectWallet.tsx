@@ -5,8 +5,14 @@ import { Button } from '@/components/ui/button';
 import { shortenAddress } from '@/lib/contractUtils';
 import { Wallet } from 'lucide-react';
 import { toast } from 'sonner';
-import { connectWithEthers } from '@/lib/web3Config';
+import { connectWithEthers, connectWithMetaMask, connectWithWalletConnect } from '@/lib/web3Config';
 import { ethers } from 'ethers';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const ConnectWallet: React.FC = () => {
   const { address, isConnected } = useAccount();
@@ -15,33 +21,67 @@ const ConnectWallet: React.FC = () => {
   const { disconnect } = useDisconnect();
   const [isConnecting, setIsConnecting] = useState(false);
 
-  // Handle connect click with ethers.js as primary and wagmi as fallback
+  // Handle MetaMask connection
+  const handleConnectMetaMask = async () => {
+    setIsConnecting(true);
+    
+    try {
+      const signer = await connectWithMetaMask();
+      
+      if (signer) {
+        const address = await signer.getAddress();
+        console.log("Connected with MetaMask:", address);
+        toast.success("Wallet connected successfully");
+      } else {
+        toast.error("MetaMask not detected. Please install MetaMask.");
+      }
+    } catch (err) {
+      console.error("MetaMask connection error:", err);
+      toast.error("Failed to connect MetaMask");
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  // Handle WalletConnect connection
+  const handleConnectWalletConnect = async () => {
+    setIsConnecting(true);
+    
+    try {
+      const signer = await connectWithWalletConnect();
+      
+      if (signer) {
+        const address = await signer.getAddress();
+        console.log("Connected with WalletConnect:", address);
+        toast.success("WalletConnect connected successfully");
+      } else {
+        toast.error("Failed to connect with WalletConnect");
+      }
+    } catch (err) {
+      console.error("WalletConnect error:", err);
+      toast.error("Failed to connect with WalletConnect");
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  // General connect method that tries all options
   const handleConnect = async () => {
     setIsConnecting(true);
     
     try {
-      // First try connecting with ethers.js directly
+      // Try to connect using ethers (tries MetaMask first, then WalletConnect)
       const signer = await connectWithEthers();
       
       if (signer) {
-        // Successfully connected with ethers
         const address = await signer.getAddress();
-        console.log("Connected with ethers.js:", address);
-        
-        // Note: The UI will update through wagmi's autoConnect
+        console.log("Connected wallet address:", address);
         toast.success("Wallet connected successfully");
-        setIsConnecting(false);
         return;
       }
       
-      // If ethers direct connection failed, try wagmi MetaMask connector
-      const metaMask = connectors.find(c => c.id === 'metaMask');
-      
-      if (metaMask && metaMask.ready) {
-        connect({ connector: metaMask });
-      } else {
-        toast.error("No wallet detected. Please install MetaMask or another Ethereum wallet");
-      }
+      // If all direct methods failed, show error
+      toast.error("No wallet detected. Please use the dropdown to select a wallet.");
     } catch (err) {
       console.error("Connection error:", err);
       toast.error("Failed to connect wallet");
@@ -69,18 +109,29 @@ const ConnectWallet: React.FC = () => {
   }
 
   return (
-    <Button
-      onClick={handleConnect}
-      disabled={isConnecting || isPending}
-      className="cyber-button"
-    >
-      {isConnecting || isPending ? 'Connecting...' : (
-        <>
-          <Wallet className="w-4 h-4 mr-2" />
-          Connect Wallet
-        </>
-      )}
-    </Button>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          className="cyber-button"
+          disabled={isConnecting || isPending}
+        >
+          {isConnecting || isPending ? 'Connecting...' : (
+            <>
+              <Wallet className="w-4 h-4 mr-2" />
+              Connect Wallet
+            </>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-[200px]">
+        <DropdownMenuItem onClick={handleConnectMetaMask}>
+          MetaMask
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handleConnectWalletConnect}>
+          WalletConnect
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };
 
