@@ -1,7 +1,33 @@
 import { ethers } from 'ethers';
 import { toast } from 'sonner';
 
-// Function to fetch ABI from contract address using Etherscan-like APIs
+function getProvider(chainId: number): ethers.Provider {
+  switch (chainId) {
+    case 1: // Ethereum Mainnet
+      return new ethers.JsonRpcProvider('https://mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID');
+    case 5: // Goerli
+      return new ethers.JsonRpcProvider('https://goerli.infura.io/v3/YOUR_INFURA_PROJECT_ID');
+    case 11155111: // Sepolia
+      return new ethers.JsonRpcProvider('https://sepolia.infura.io/v3/YOUR_INFURA_PROJECT_ID');
+    case 137: // Polygon
+      return new ethers.JsonRpcProvider('https://polygon-mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID');
+    case 80001: // Mumbai
+      return new ethers.JsonRpcProvider('https://mumbai.infura.io/v3/YOUR_INFURA_PROJECT_ID');
+    case 42161: // Arbitrum
+      return new ethers.JsonRpcProvider('https://arb-mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID');
+    case 10: // Optimism
+      return new ethers.JsonRpcProvider('https://optimism-mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID');
+    case 56: // BSC
+      return new ethers.JsonRpcProvider('https://bsc-mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID');
+    case 8453: // Base
+      return new ethers.JsonRpcProvider('https://base-mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID');
+    case 420: // Base Goerli
+      return new ethers.JsonRpcProvider('https://base-goerli.public.blastapi.io');
+    default:
+      throw new Error(`Unsupported chain ID: ${chainId}`);
+  }
+}
+
 export const fetchContractABI = async (
   address: string, 
   chainId: number
@@ -10,8 +36,7 @@ export const fetchContractABI = async (
   
   try {
     // First, try direct RPC method call to get the bytecode
-    // This can help determine if the contract exists
-    const provider = getEthersProvider(chainId);
+    const provider = getProvider(chainId);
     const bytecode = await provider.getCode(address);
     
     if (bytecode === '0x' || bytecode === '') {
@@ -22,10 +47,8 @@ export const fetchContractABI = async (
     
     // Contract exists, try to get verified ABI from block explorer
     let apiUrl;
-    let apiKey;
+    let apiKey = '8UQEY8RYB6GM76IMIGNZTU29K3KA5UNN8P'; // User's BaseScan API key
     
-    // Using public API keys for demo purposes
-    // These are public keys used for demo and rate-limited, but work for basic usage
     switch (chainId) {
       case 1: // Ethereum Mainnet
         apiUrl = `https://api.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=NPXSNH347JW6C5XBKWG89DJD6CK2CSCVNT`;
@@ -51,12 +74,12 @@ export const fetchContractABI = async (
       case 56: // BSC
         apiUrl = `https://api.bscscan.com/api?module=contract&action=getabi&address=${address}&apikey=YKPWT5K3G5AMK8XV77CUWTNCGF1IXJ4P39`;
         break;
-      case 8453: // Base - use a free API key for testing
-        apiUrl = `https://api.basescan.org/api?module=contract&action=getabi&address=${address}&apikey=YourApiKeyToken`;
+      case 8453: // Base
+        apiUrl = `https://api.basescan.org/api?module=contract&action=getabi&address=${address}&apikey=${apiKey}`;
         break;
-      case 420: // APE - no official explorer API yet, use fallback
-        console.log('No block explorer API available for ApeCoin chain, using fallback ABI');
-        return getSmartDetectedABI(bytecode);
+      case 420: // Base Goerli
+        apiUrl = `https://api-goerli.basescan.org/api?module=contract&action=getabi&address=${address}&apikey=${apiKey}`;
+        break;
       default:
         console.log('No block explorer API available for this chain, using smart detection');
         return getSmartDetectedABI(bytecode);
@@ -100,7 +123,6 @@ export const fetchContractABI = async (
   }
 };
 
-// New function to attempt more intelligent ABI detection based on bytecode
 function getSmartDetectedABI(bytecode: string) {
   console.log('Using smart ABI detection...');
   
@@ -138,7 +160,6 @@ function getSmartDetectedABI(bytecode: string) {
   return getFallbackABI();
 }
 
-// Function to get a fallback ABI for common ERC standards
 function getFallbackABI() {
   // Basic ERC721 ABI with common mint functions
   const basicERC721ABI = [
@@ -190,7 +211,6 @@ function getFallbackABI() {
   return [...basicERC721ABI, ...basicERC20ABI];
 }
 
-// Function specifically for ERC721 contracts
 function getERC721ABI() {
   return [
     // ERC721 Standard
@@ -246,7 +266,6 @@ function getERC721ABI() {
   ];
 }
 
-// Function specifically for ERC20 contracts
 function getERC20ABI() {
   return [
     // ERC20 Standard
@@ -275,7 +294,6 @@ function getERC20ABI() {
   ];
 }
 
-// Function specifically for ERC1155 contracts
 function getERC1155ABI() {
   return [
     // ERC1155 Standard
@@ -308,12 +326,10 @@ function getERC1155ABI() {
   ];
 }
 
-// Function to validate if a string is a valid Ethereum address
 export const isValidAddress = (address: string): boolean => {
   return ethers.isAddress(address);
 };
 
-// Function to get contract functions from ABI
 export const getContractFunctions = (abi: any[]): {
   writeFunctions: { name: string; inputs: any[]; payable: boolean }[];
   readFunctions: { name: string; inputs: any[]; outputs: any[] }[];
@@ -393,7 +409,6 @@ export const getContractFunctions = (abi: any[]): {
   };
 };
 
-// Function to format ETH values
 export const formatEth = (value: bigint | string | number): string => {
   try {
     return ethers.formatEther(value.toString());
@@ -402,7 +417,6 @@ export const formatEth = (value: bigint | string | number): string => {
   }
 };
 
-// Function to parse ETH values
 export const parseEth = (value: string): bigint => {
   try {
     return ethers.parseEther(value);
@@ -411,13 +425,11 @@ export const parseEth = (value: string): bigint => {
   }
 };
 
-// Function to shorten an address
 export const shortenAddress = (address: string): string => {
   if (!address) return '';
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 };
 
-// Function to estimate gas for a transaction
 export const estimateGasForTransaction = async (
   contract: ethers.Contract,
   functionName: string,
@@ -445,31 +457,3 @@ export const estimateGasForTransaction = async (
     throw error;
   }
 };
-
-// Helper function to get an Ethers provider based on chain ID
-function getEthersProvider(chainId: number): ethers.Provider {
-  switch (chainId) {
-    case 1:
-      return new ethers.providers.JsonRpcProvider('https://mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID');
-    case 5:
-      return new ethers.providers.JsonRpcProvider('https://goerli.infura.io/v3/YOUR_INFURA_PROJECT_ID');
-    case 11155111:
-      return new ethers.providers.JsonRpcProvider('https://sepolia.infura.io/v3/YOUR_INFURA_PROJECT_ID');
-    case 137:
-      return new ethers.providers.JsonRpcProvider('https://polygon-mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID');
-    case 80001:
-      return new ethers.providers.JsonRpcProvider('https://mumbai.infura.io/v3/YOUR_INFURA_PROJECT_ID');
-    case 42161:
-      return new ethers.providers.JsonRpcProvider('https://arb-mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID');
-    case 10:
-      return new ethers.providers.JsonRpcProvider('https://optimism-mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID');
-    case 56:
-      return new ethers.providers.JsonRpcProvider('https://bsc-mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID');
-    case 8453:
-      return new ethers.providers.JsonRpcProvider('https://base-mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID');
-    case 420:
-      return new ethers.providers.JsonRpcProvider('https://ape-mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID');
-    default:
-      throw new Error(`Unsupported chain ID: ${chainId}`);
-  }
-}
