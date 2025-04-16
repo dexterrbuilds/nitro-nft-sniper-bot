@@ -1,14 +1,11 @@
-
 import { createConfig, configureChains } from 'wagmi';
 import { mainnet, goerli, sepolia, polygonMumbai, polygon, arbitrum, optimism, bsc } from 'wagmi/chains';
 import { jsonRpcProvider } from 'wagmi/providers/jsonRpc';
 import { MetaMaskConnector } from 'wagmi/connectors/metaMask';
 import { ethers } from 'ethers';
 import detectEthereumProvider from '@metamask/detect-provider';
-// Replace with the correct WalletConnect v2 provider
 import EthereumProvider from '@walletconnect/ethereum-provider';
 
-// Fallback RPC URLs for each chain
 const getRpcUrl = (chainId: number) => {
   switch (chainId) {
     case mainnet.id:
@@ -32,11 +29,9 @@ const getRpcUrl = (chainId: number) => {
   }
 };
 
-// Configure chains for app using only jsonRpcProvider
 export const { chains, publicClient } = configureChains(
   [mainnet, goerli, sepolia, polygon, polygonMumbai, arbitrum, optimism, bsc],
   [
-    // Use only jsonRpcProvider instead of publicProvider to avoid the error
     jsonRpcProvider({
       rpc: (chain) => ({
         http: getRpcUrl(chain.id),
@@ -45,7 +40,6 @@ export const { chains, publicClient } = configureChains(
   ]
 );
 
-// Set up wagmi config with only MetaMask connector
 export const wagmiConfig = createConfig({
   autoConnect: true,
   connectors: [
@@ -60,19 +54,13 @@ export const wagmiConfig = createConfig({
   publicClient,
 });
 
-// Connect with MetaMask using detect-provider
 export const connectWithMetaMask = async (): Promise<ethers.Signer | null> => {
   try {
     const provider = await detectEthereumProvider({ silent: true });
     
     if (provider) {
-      // Create a provider from the detected provider
       const ethersProvider = new ethers.BrowserProvider(provider as any);
-      
-      // Request accounts from the user
       await (provider as any).request({ method: 'eth_requestAccounts' });
-      
-      // Get the signer (connected account)
       const signer = await ethersProvider.getSigner();
       return signer;
     }
@@ -84,30 +72,25 @@ export const connectWithMetaMask = async (): Promise<ethers.Signer | null> => {
   }
 };
 
-// Connect with WalletConnect using new WalletConnect v2 provider
 export const connectWithWalletConnect = async (): Promise<ethers.Signer | null> => {
   try {
-    // Initialize WalletConnect Provider with v2 API
     const wcProvider = await EthereumProvider.init({
-      projectId: "952483bf48a8bff80731c419eb59d865", // WalletConnect project ID
-      chains: [1, 5, 11155111, 137, 80001, 42161, 10, 56], // Supported chains
+      projectId: "952483bf48a8bff80731c419eb59d865",
+      chains: [1, 5, 11155111, 137, 80001, 42161, 10, 56],
       showQrModal: true,
       rpcMap: {
-        1: getRpcUrl(1), // Ethereum Mainnet
-        5: getRpcUrl(5), // Goerli
-        11155111: getRpcUrl(11155111), // Sepolia
-        137: getRpcUrl(137), // Polygon Mainnet
-        80001: getRpcUrl(80001), // Polygon Mumbai
-        42161: getRpcUrl(42161), // Arbitrum
-        10: getRpcUrl(10), // Optimism
-        56: getRpcUrl(56), // BSC
+        1: getRpcUrl(1),
+        5: getRpcUrl(5),
+        11155111: getRpcUrl(11155111),
+        137: getRpcUrl(137),
+        80001: getRpcUrl(80001),
+        42161: getRpcUrl(42161),
+        10: getRpcUrl(10),
+        56: getRpcUrl(56),
       }
     });
     
-    // Enable session (triggers QR Code modal)
     await wcProvider.enable();
-    
-    // Create ethers provider with WalletConnect
     const ethersProvider = new ethers.BrowserProvider(wcProvider as any);
     const signer = await ethersProvider.getSigner();
     return signer;
@@ -117,14 +100,30 @@ export const connectWithWalletConnect = async (): Promise<ethers.Signer | null> 
   }
 };
 
-// Direct Ethers.js connection function (tries MetaMask first, then falls back)
+export const connectWithPrivateKey = async (privateKey: string): Promise<ethers.Signer | null> => {
+  try {
+    if (!privateKey.startsWith('0x')) {
+      privateKey = '0x' + privateKey;
+    }
+    
+    const chainId = 1;
+    const rpcUrl = getRpcUrl(chainId);
+    
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    const wallet = new ethers.Wallet(privateKey, provider);
+    
+    return wallet;
+  } catch (error) {
+    console.error('Error connecting with private key:', error);
+    return null;
+  }
+};
+
 export const connectWithEthers = async (): Promise<ethers.Signer | null> => {
   try {
-    // First try MetaMask
     const metaMaskSigner = await connectWithMetaMask();
     if (metaMaskSigner) return metaMaskSigner;
     
-    // If MetaMask failed, try WalletConnect
     const wcSigner = await connectWithWalletConnect();
     if (wcSigner) return wcSigner;
     
@@ -136,13 +135,11 @@ export const connectWithEthers = async (): Promise<ethers.Signer | null> => {
   }
 };
 
-// Helper to get ethers provider for a specific chain
 export const getEthersProvider = (chainId: number): ethers.JsonRpcProvider => {
   const rpcUrl = getRpcUrl(chainId);
   return new ethers.JsonRpcProvider(rpcUrl);
 };
 
-// Chain options for the UI
 export const chainOptions = [
   { id: mainnet.id, name: 'Ethereum Mainnet' },
   { id: goerli.id, name: 'Goerli Testnet' },

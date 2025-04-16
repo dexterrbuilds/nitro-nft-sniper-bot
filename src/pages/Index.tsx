@@ -9,7 +9,7 @@ import FunctionForm from '@/components/FunctionForm';
 import TransactionHistory, { Transaction } from '@/components/TransactionHistory';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { fetchContractABI, getContractFunctions, parseEth } from '@/lib/contractUtils';
+import { fetchContractABI, getContractFunctions, parseEth, shortenAddress } from '@/lib/contractUtils';
 import { v4 as uuidv4 } from 'uuid';
 import { getEthersProvider } from '@/lib/web3Config';
 import { Info } from 'lucide-react';
@@ -35,6 +35,10 @@ const Index = () => {
   const [selectedFunction, setSelectedFunction] = useState<string | null>(null);
   const [selectedFunctionDetails, setSelectedFunctionDetails] = useState<any>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [contractName, setContractName] = useState<string | null>(null);
+  
+  // Add state for private key connected signer
+  const [privateKeySigner, setPrivateKeySigner] = useState<ethers.Signer | null>(null);
   
   // Get contract from local storage on mount
   useEffect(() => {
@@ -76,9 +80,6 @@ const Index = () => {
     }
   }, [selectedFunction, writeFunctions]);
 
-  // Add a new state for contract name
-  const [contractName, setContractName] = useState<string | null>(null);
-  
   // Handle loading contract data
   const handleLoadContract = async (address: string, chain: number) => {
     setIsLoadingContract(true);
@@ -140,15 +141,18 @@ const Index = () => {
     }
   };
 
-  // Handle function execution
+  // Handle function execution - updated to use privateKeySigner if available
   const handleExecuteFunction = async (args: any[], ethValue: string) => {
     if (!contract || !selectedFunction || !selectedFunctionDetails) {
       toast.error('Contract not loaded or function not selected');
       return;
     }
     
-    if (!isConnected) {
-      toast.error('Please connect your wallet to execute transactions');
+    // Check if we have a private key signer or if wallet is connected
+    const hasValidSigner = isConnected || privateKeySigner;
+    
+    if (!hasValidSigner) {
+      toast.error('Please connect your wallet or use a private key to execute transactions');
       return;
     }
     
@@ -188,8 +192,15 @@ const Index = () => {
         options.value = parseEth(ethValue);
       }
       
+      // Choose the appropriate signer
+      let executionContract = contract;
+      if (privateKeySigner) {
+        // If we have a private key signer, use it
+        executionContract = contract.connect(privateKeySigner);
+      }
+      
       // Send transaction
-      const tx = await contract[selectedFunction](...processedArgs, options);
+      const tx = await executionContract[selectedFunction](...processedArgs, options);
       
       // Update transaction record with hash
       setTransactions(prev => 
@@ -233,6 +244,12 @@ const Index = () => {
     }
   };
 
+  // New function to handle private key connection
+  const handleSetPrivateKeySigner = (signer: ethers.Signer) => {
+    setPrivateKeySigner(signer);
+    toast.success("Private key connected successfully");
+  };
+
   return (
     <Layout>
       <div className="grid md:grid-cols-7 gap-6">
@@ -256,9 +273,14 @@ const Index = () => {
           <Card className="cyber-panel bg-cyber-dark border-cyber-accent/30">
             <CardHeader>
               <CardTitle className="text-lg font-mono">Transaction History</CardTitle>
-              {!isConnected && (
+              {!isConnected && !privateKeySigner && (
                 <CardDescription className="text-amber-500">
-                  Connect wallet to execute transactions
+                  Connect wallet or use private key to execute transactions
+                </CardDescription>
+              )}
+              {privateKeySigner && (
+                <CardDescription className="text-green-500">
+                  Connected with private key
                 </CardDescription>
               )}
             </CardHeader>
@@ -302,9 +324,9 @@ const Index = () => {
               {contractAddress && (
                 <CardDescription>
                   {writeFunctions.length} write functions, {readFunctions.length} read functions found
-                  {!isConnected && (
+                  {!isConnected && !privateKeySigner && (
                     <span className="block mt-1 text-amber-500">
-                      Connect wallet to execute functions
+                      Connect wallet or use private key to execute functions
                     </span>
                   )}
                 </CardDescription>
@@ -338,7 +360,7 @@ const Index = () => {
                         onSubmit={handleExecuteFunction}
                         isLoading={isExecuting}
                         walletRequired={true}
-                        walletConnected={isConnected}
+                        walletConnected={isConnected || !!privateKeySigner}
                       />
                     )}
                   </TabsContent>
