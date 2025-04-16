@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
@@ -14,6 +15,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getEthersProvider } from '@/lib/web3Config';
 import { Info } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import PrivateKeyInput from '@/components/PrivateKeyInput';
 
 // Define a more specific type that allows indexing by string
 type EthersContract = ethers.Contract & {
@@ -56,18 +58,19 @@ const Index = () => {
       }
     }
     
-    // Add event listener for private key connection
-    const handlePrivateKeyEvent = (event: CustomEvent) => {
-      if (event.detail && event.detail.signer) {
-        setPrivateKeySigner(event.detail.signer);
+    // Try to load the last contract if available
+    const lastContract = localStorage.getItem('nitro-nft-last-contract');
+    if (lastContract) {
+      try {
+        const { address, chainId } = JSON.parse(lastContract);
+        if (address && chainId) {
+          console.log('Loading last used contract:', address, 'on chain', chainId);
+          handleLoadContract(address, chainId);
+        }
+      } catch (e) {
+        console.error('Failed to load last contract', e);
       }
-    };
-    
-    window.addEventListener('privateKeyConnected' as any, handlePrivateKeyEvent);
-    
-    return () => {
-      window.removeEventListener('privateKeyConnected' as any, handlePrivateKeyEvent);
-    };
+    }
   }, []);
   
   // Save transactions to local storage when they change
@@ -90,6 +93,16 @@ const Index = () => {
     setIsLoadingContract(true);
     
     try {
+      // Reset state first
+      setContractABI(null);
+      setContract(null);
+      setWriteFunctions([]);
+      setReadFunctions([]);
+      setSelectedFunction(null);
+      setSelectedFunctionDetails(null);
+      
+      console.log(`Loading contract ${address} on chain ${chain}`);
+      
       const abi = await fetchContractABI(address, chain);
       
       if (!abi) {
@@ -106,12 +119,22 @@ const Index = () => {
       let name = 'Unknown Contract';
       try {
         name = await contractInstance.name();
+        console.log('Contract name:', name);
       } catch (e) {
         console.log('Could not fetch contract name');
+        // Try alternative method
+        try {
+          // Some contracts use a different case for the name function
+          name = await contractInstance.Name();
+        } catch (e) {
+          console.log('Could not fetch contract name using alternative method');
+        }
       }
       
       // Extract functions from ABI
       const { writeFunctions, readFunctions } = getContractFunctions(abi);
+      console.log('Write functions:', writeFunctions);
+      console.log('Read functions:', readFunctions);
       
       setContractAddress(address);
       setChainId(chain);
@@ -137,10 +160,15 @@ const Index = () => {
       // Save to local storage
       localStorage.setItem('nitro-nft-last-contract', JSON.stringify({ address, chainId: chain }));
       
-      toast.success(`Contract loaded: ${name}`);
-    } catch (error) {
+      toast.success(`Contract loaded: ${name || 'Unknown Contract'}`);
+    } catch (error: any) {
       console.error('Error loading contract:', error);
-      toast.error('Failed to load contract');
+      toast.error(`Failed to load contract: ${error.message || 'Unknown error'}`);
+      
+      // Clear contract-related state
+      setContract(null);
+      setWriteFunctions([]);
+      setReadFunctions([]);
     } finally {
       setIsLoadingContract(false);
     }
@@ -203,6 +231,13 @@ const Index = () => {
         executionContract = contract.connect(privateKeySigner) as EthersContract;
       }
       
+      // Log transaction details for debugging
+      console.log('Sending transaction:', {
+        function: selectedFunction,
+        args: processedArgs,
+        options
+      });
+      
       // Send transaction with properly typed contract
       const tx = await executionContract[selectedFunction](...processedArgs, options);
       
@@ -253,7 +288,7 @@ const Index = () => {
       setTransactions(prev => 
         prev.map(t => 
           t.id === txId 
-            ? { ...t, status: 'error' } 
+            ? { ...t, status: 'error', error: error.message } 
             : t
         )
       );
@@ -265,16 +300,10 @@ const Index = () => {
   }, [contract, selectedFunction, selectedFunctionDetails, privateKeySigner, contractAddress]);
 
   // New function to handle private key connection
-  const handleSetPrivateKeySigner = (signer: ethers.Signer) => {
-    setPrivateKeySigner(signer);
-    
-    // Dispatch a custom event that components can listen for
-    const event = new CustomEvent('privateKeyConnected', { 
-      detail: { signer } 
-    });
-    window.dispatchEvent(event as any);
-    
-    toast.success("Private key connected successfully");
+  const handlePrivateKeyConnect = (address: string) => {
+    // The signer is already set in the web3Config.ts via an event
+    // Just update the UI to reflect the connection
+    toast.success(`Connected with address: ${shortenAddress(address)}`);
   };
 
   return (
@@ -294,6 +323,10 @@ const Index = () => {
                 onSubmit={handleLoadContract}
                 isLoading={isLoadingContract}
               />
+              
+              <div className="mt-6">
+                <PrivateKeyInput onConnect={handlePrivateKeyConnect} />
+              </div>
             </CardContent>
           </Card>
 
@@ -351,9 +384,9 @@ const Index = () => {
               {contractAddress && (
                 <CardDescription>
                   {writeFunctions.length} write functions, {readFunctions.length} read functions found
-                  {!isConnected && !privateKeySigner && (
+                  {!privateKeySigner && (
                     <span className="block mt-1 text-amber-500">
-                      Connect wallet or use private key to execute functions
+                      Connect with private key to execute functions
                     </span>
                   )}
                 </CardDescription>
@@ -387,7 +420,7 @@ const Index = () => {
                         onSubmit={handleExecuteFunction}
                         isLoading={isExecuting}
                         walletRequired={true}
-                        walletConnected={isConnected || !!privateKeySigner}
+                        walletConnected={!!privateKeySigner}
                       />
                     )}
                   </TabsContent>

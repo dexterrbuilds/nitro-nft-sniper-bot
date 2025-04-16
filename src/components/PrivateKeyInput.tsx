@@ -32,6 +32,7 @@ const PrivateKeyInput: React.FC<PrivateKeyInputProps> = ({ onConnect }) => {
       // Clear the private key from state for security immediately
       setPrivateKey('');
       
+      // Pass only the private key, the chain ID is retrieved from the state
       const signer = await connectWithPrivateKey(keyToConnect, selectedChainId);
       
       if (signer) {
