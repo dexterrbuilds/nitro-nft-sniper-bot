@@ -6,6 +6,36 @@ import { ethers } from 'ethers';
 import detectEthereumProvider from '@metamask/detect-provider';
 import EthereumProvider from '@walletconnect/ethereum-provider';
 
+const base = {
+  id: 8453,
+  name: 'Base',
+  network: 'base',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'Ethereum',
+    symbol: 'ETH',
+  },
+  rpcUrls: {
+    public: { http: ['https://mainnet.base.org'] },
+    default: { http: ['https://mainnet.base.org'] },
+  },
+};
+
+const apeChain = {
+  id: 16384,
+  name: 'ApeCoin',
+  network: 'apechain',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'ApeCoin',
+    symbol: 'APE',
+  },
+  rpcUrls: {
+    public: { http: ['https://rpc.ankr.com/apecoin'] },
+    default: { http: ['https://rpc.ankr.com/apecoin'] },
+  },
+};
+
 const getRpcUrl = (chainId: number) => {
   switch (chainId) {
     case mainnet.id:
@@ -24,13 +54,17 @@ const getRpcUrl = (chainId: number) => {
       return "https://opt-mainnet.g.alchemy.com/v2/demo";
     case bsc.id:
       return "https://bsc-dataseed.binance.org";
+    case base.id:
+      return "https://mainnet.base.org";
+    case apeChain.id:
+      return "https://rpc.ankr.com/apecoin";
     default:
       return "https://eth-mainnet.g.alchemy.com/v2/demo";
   }
 };
 
 export const { chains, publicClient } = configureChains(
-  [mainnet, goerli, sepolia, polygon, polygonMumbai, arbitrum, optimism, bsc],
+  [mainnet, goerli, sepolia, polygon, polygonMumbai, arbitrum, optimism, bsc, base, apeChain],
   [
     jsonRpcProvider({
       rpc: (chain) => ({
@@ -54,7 +88,7 @@ export const wagmiConfig = createConfig({
   publicClient,
 });
 
-export const connectWithMetaMask = async (): Promise<ethers.Signer | null> => {
+const connectWithMetaMask = async (): Promise<ethers.Signer | null> => {
   try {
     const provider = await detectEthereumProvider({ silent: true });
     
@@ -72,11 +106,11 @@ export const connectWithMetaMask = async (): Promise<ethers.Signer | null> => {
   }
 };
 
-export const connectWithWalletConnect = async (): Promise<ethers.Signer | null> => {
+const connectWithWalletConnect = async (): Promise<ethers.Signer | null> => {
   try {
     const wcProvider = await EthereumProvider.init({
       projectId: "952483bf48a8bff80731c419eb59d865",
-      chains: [1, 5, 11155111, 137, 80001, 42161, 10, 56],
+      chains: [1, 5, 11155111, 137, 80001, 42161, 10, 56, 8453, 16384],
       showQrModal: true,
       rpcMap: {
         1: getRpcUrl(1),
@@ -87,6 +121,8 @@ export const connectWithWalletConnect = async (): Promise<ethers.Signer | null> 
         42161: getRpcUrl(42161),
         10: getRpcUrl(10),
         56: getRpcUrl(56),
+        8453: getRpcUrl(8453),
+        16384: getRpcUrl(16384),
       }
     });
     
@@ -119,15 +155,9 @@ export const connectWithPrivateKey = async (privateKey: string): Promise<ethers.
   }
 };
 
-export const connectWithEthers = async (): Promise<ethers.Signer | null> => {
+const connectWithEthers = async (): Promise<ethers.Signer | null> => {
   try {
-    const metaMaskSigner = await connectWithMetaMask();
-    if (metaMaskSigner) return metaMaskSigner;
-    
-    const wcSigner = await connectWithWalletConnect();
-    if (wcSigner) return wcSigner;
-    
-    console.log('No wallet detected');
+    console.log('No wallet connection method selected');
     return null;
   } catch (error) {
     console.error('Error connecting with ethers:', error);
@@ -149,4 +179,6 @@ export const chainOptions = [
   { id: arbitrum.id, name: 'Arbitrum' },
   { id: optimism.id, name: 'Optimism' },
   { id: bsc.id, name: 'Binance Smart Chain' },
+  { id: base.id, name: 'Base Chain' },
+  { id: apeChain.id, name: 'Ape Chain' },
 ];

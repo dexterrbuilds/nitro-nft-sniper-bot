@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { toast } from 'sonner';
@@ -46,7 +45,7 @@ const Index = () => {
   // Add state for private key connected signer
   const [privateKeySigner, setPrivateKeySigner] = useState<ethers.Signer | null>(null);
   
-  // Get contract from local storage on mount
+  // Get contract from local storage on mount and set up storage listeners
   useEffect(() => {
     const storedTransactions = localStorage.getItem('nitro-nft-transactions');
     if (storedTransactions) {
@@ -57,18 +56,18 @@ const Index = () => {
       }
     }
     
-    // Try to restore last used contract
-    const lastContract = localStorage.getItem('nitro-nft-last-contract');
-    if (lastContract) {
-      try {
-        const { address, chainId } = JSON.parse(lastContract);
-        if (address && chainId) {
-          handleLoadContract(address, chainId);
-        }
-      } catch (e) {
-        console.error('Failed to restore last contract');
+    // Add event listener for private key connection
+    const handlePrivateKeyEvent = (event: CustomEvent) => {
+      if (event.detail && event.detail.signer) {
+        setPrivateKeySigner(event.detail.signer);
       }
-    }
+    };
+    
+    window.addEventListener('privateKeyConnected' as any, handlePrivateKeyEvent);
+    
+    return () => {
+      window.removeEventListener('privateKeyConnected' as any, handlePrivateKeyEvent);
+    };
   }, []);
   
   // Save transactions to local storage when they change
@@ -87,7 +86,7 @@ const Index = () => {
   }, [selectedFunction, writeFunctions]);
 
   // Handle loading contract data
-  const handleLoadContract = async (address: string, chain: number) => {
+  const handleLoadContract = useCallback(async (address: string, chain: number) => {
     setIsLoadingContract(true);
     
     try {
@@ -145,20 +144,20 @@ const Index = () => {
     } finally {
       setIsLoadingContract(false);
     }
-  };
+  }, []);
 
   // Handle function execution - updated to use privateKeySigner if available
-  const handleExecuteFunction = async (args: any[], ethValue: string) => {
+  const handleExecuteFunction = useCallback(async (args: any[], ethValue: string) => {
     if (!contract || !selectedFunction || !selectedFunctionDetails) {
       toast.error('Contract not loaded or function not selected');
       return;
     }
     
-    // Check if we have a private key signer or if wallet is connected
-    const hasValidSigner = isConnected || privateKeySigner;
+    // Check if we have a private key signer
+    const hasValidSigner = privateKeySigner !== null;
     
     if (!hasValidSigner) {
-      toast.error('Please connect your wallet or use a private key to execute transactions');
+      toast.error('Please connect using a private key to execute transactions');
       return;
     }
     
@@ -198,10 +197,9 @@ const Index = () => {
         options.value = parseEth(ethValue);
       }
       
-      // Choose the appropriate signer
+      // Use private key signer if available
       let executionContract = contract;
       if (privateKeySigner) {
-        // If we have a private key signer, use it
         executionContract = contract.connect(privateKeySigner) as EthersContract;
       }
       
@@ -219,19 +217,35 @@ const Index = () => {
       
       toast.success(`Transaction sent: ${tx.hash}`);
       
-      // Wait for confirmation
-      const receipt = await tx.wait();
+      // Wait for confirmation (but don't freeze the UI)
+      toast.info('Waiting for transaction confirmation...');
       
-      // Update transaction status
-      setTransactions(prev => 
-        prev.map(t => 
-          t.id === txId 
-            ? { ...t, status: 'success' } 
-            : t
-        )
-      );
-      
-      toast.success(`Transaction confirmed!`);
+      // We use the await but in a non-blocking way
+      tx.wait().then((receipt: any) => {
+        // Update transaction status
+        setTransactions(prev => 
+          prev.map(t => 
+            t.id === txId 
+              ? { ...t, status: 'success' } 
+              : t
+          )
+        );
+        
+        toast.success(`Transaction confirmed!`);
+      }).catch((error: any) => {
+        console.error('Transaction confirmation error:', error);
+        
+        // Update transaction status
+        setTransactions(prev => 
+          prev.map(t => 
+            t.id === txId 
+              ? { ...t, status: 'error' } 
+              : t
+          )
+        );
+        
+        toast.error(`Transaction failed during confirmation`);
+      });
     } catch (error: any) {
       console.error('Transaction error:', error);
       
@@ -248,11 +262,18 @@ const Index = () => {
     } finally {
       setIsExecuting(false);
     }
-  };
+  }, [contract, selectedFunction, selectedFunctionDetails, privateKeySigner, contractAddress]);
 
   // New function to handle private key connection
   const handleSetPrivateKeySigner = (signer: ethers.Signer) => {
     setPrivateKeySigner(signer);
+    
+    // Dispatch a custom event that components can listen for
+    const event = new CustomEvent('privateKeyConnected', { 
+      detail: { signer } 
+    });
+    window.dispatchEvent(event as any);
+    
     toast.success("Private key connected successfully");
   };
 
@@ -279,9 +300,9 @@ const Index = () => {
           <Card className="cyber-panel bg-cyber-dark border-cyber-accent/30">
             <CardHeader>
               <CardTitle className="text-lg font-mono">Transaction History</CardTitle>
-              {!isConnected && !privateKeySigner && (
+              {!privateKeySigner && (
                 <CardDescription className="text-amber-500">
-                  Connect wallet or use private key to execute transactions
+                  Connect with private key to execute transactions
                 </CardDescription>
               )}
               {privateKeySigner && (

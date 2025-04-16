@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { connectWithPrivateKey } from '@/lib/web3Config';
+import { ethers } from 'ethers';
 
 interface PrivateKeyInputProps {
   onConnect: (address: string) => void;
@@ -20,12 +21,25 @@ const PrivateKeyInput: React.FC<PrivateKeyInputProps> = ({ onConnect }) => {
     }
 
     setIsConnecting(true);
+    
     try {
-      const signer = await connectWithPrivateKey(privateKey.trim());
+      // Create a local copy of the private key to avoid state access during async operations
+      const keyToConnect = privateKey.trim();
+      
+      // Clear the private key from state for security immediately
+      setPrivateKey('');
+      
+      const signer = await connectWithPrivateKey(keyToConnect);
+      
       if (signer) {
         const address = await signer.getAddress();
+        console.log("Connected with private key, address:", address);
         toast.success(`Connected with private key: ${address.slice(0, 6)}...${address.slice(-4)}`);
-        onConnect(address);
+        
+        // Call onConnect outside of state update to prevent freezing
+        setTimeout(() => {
+          onConnect(address);
+        }, 0);
       } else {
         toast.error('Invalid private key');
       }
@@ -34,8 +48,6 @@ const PrivateKeyInput: React.FC<PrivateKeyInputProps> = ({ onConnect }) => {
       toast.error('Failed to connect with private key');
     } finally {
       setIsConnecting(false);
-      // Clear the private key from state for security
-      setPrivateKey('');
     }
   };
 
