@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
@@ -15,6 +16,11 @@ import { getEthersProvider } from '@/lib/web3Config';
 import { Info } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
+// Define a more specific type that allows indexing by string
+type EthersContract = ethers.Contract & {
+  [key: string]: any;
+};
+
 const Index = () => {
   const { isConnected, address } = useAccount();
   const { data: walletClient } = useWalletClient();
@@ -24,7 +30,7 @@ const Index = () => {
   const [contractAddress, setContractAddress] = useState<string>('');
   const [chainId, setChainId] = useState<number>(1);
   const [contractABI, setContractABI] = useState<any[] | null>(null);
-  const [contract, setContract] = useState<ethers.Contract | null>(null);
+  const [contract, setContract] = useState<EthersContract | null>(null);
   const [writeFunctions, setWriteFunctions] = useState<{name: string; inputs: any[]; payable: boolean}[]>([]);
   const [readFunctions, setReadFunctions] = useState<{name: string; inputs: any[]; outputs: any[]}[]>([]);
   
@@ -95,7 +101,7 @@ const Index = () => {
       const provider = getEthersProvider(chain);
       
       // Create contract instance with read-only provider
-      const contractInstance = new ethers.Contract(address, abi, provider);
+      const contractInstance = new ethers.Contract(address, abi, provider) as EthersContract;
       
       // Try to fetch contract name
       let name = 'Unknown Contract';
@@ -196,10 +202,10 @@ const Index = () => {
       let executionContract = contract;
       if (privateKeySigner) {
         // If we have a private key signer, use it
-        executionContract = contract.connect(privateKeySigner);
+        executionContract = contract.connect(privateKeySigner) as EthersContract;
       }
       
-      // Send transaction
+      // Send transaction with properly typed contract
       const tx = await executionContract[selectedFunction](...processedArgs, options);
       
       // Update transaction record with hash
