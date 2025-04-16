@@ -3,8 +3,10 @@ import React, { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { connectWithPrivateKey } from '@/lib/web3Config';
+import { connectWithPrivateKey, chainOptions } from '@/lib/web3Config';
 import { ethers } from 'ethers';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 interface PrivateKeyInputProps {
   onConnect: (address: string) => void;
@@ -13,6 +15,7 @@ interface PrivateKeyInputProps {
 const PrivateKeyInput: React.FC<PrivateKeyInputProps> = ({ onConnect }) => {
   const [privateKey, setPrivateKey] = useState<string>('');
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
+  const [selectedChainId, setSelectedChainId] = useState<number>(1); // Default to Ethereum mainnet
 
   const handleConnect = async () => {
     if (!privateKey || privateKey.trim() === '') {
@@ -29,12 +32,15 @@ const PrivateKeyInput: React.FC<PrivateKeyInputProps> = ({ onConnect }) => {
       // Clear the private key from state for security immediately
       setPrivateKey('');
       
-      const signer = await connectWithPrivateKey(keyToConnect);
+      const signer = await connectWithPrivateKey(keyToConnect, selectedChainId);
       
       if (signer) {
         const address = await signer.getAddress();
         console.log("Connected with private key, address:", address);
-        toast.success(`Connected with private key: ${address.slice(0, 6)}...${address.slice(-4)}`);
+        
+        // Get chain name for the toast message
+        const chainName = chainOptions.find(chain => chain.id === selectedChainId)?.name || 'Unknown Network';
+        toast.success(`Connected to ${chainName}: ${address.slice(0, 6)}...${address.slice(-4)}`);
         
         // Call onConnect outside of state update to prevent freezing
         setTimeout(() => {
@@ -56,6 +62,28 @@ const PrivateKeyInput: React.FC<PrivateKeyInputProps> = ({ onConnect }) => {
       <div className="text-amber-500 text-xs mb-2">
         Warning: Entering a private key is risky. Only use this in a trusted environment.
       </div>
+      
+      <div className="space-y-2">
+        <Label htmlFor="chain-select" className="text-xs text-muted-foreground">
+          Select Network
+        </Label>
+        <Select 
+          value={selectedChainId.toString()} 
+          onValueChange={(value) => setSelectedChainId(parseInt(value))}
+        >
+          <SelectTrigger id="chain-select" className="bg-background/50">
+            <SelectValue placeholder="Select network" />
+          </SelectTrigger>
+          <SelectContent>
+            {chainOptions.map((chain) => (
+              <SelectItem key={chain.id} value={chain.id.toString()}>
+                {chain.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      
       <Input
         type="password"
         placeholder="Enter private key (0x...)"
