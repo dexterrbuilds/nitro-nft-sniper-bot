@@ -1,3 +1,4 @@
+
 import { createConfig, configureChains } from 'wagmi';
 import { mainnet, goerli, sepolia, polygonMumbai, polygon, arbitrum, optimism, bsc } from 'wagmi/chains';
 import { jsonRpcProvider } from 'wagmi/providers/jsonRpc';
@@ -36,6 +37,21 @@ const apeChain = {
   },
 };
 
+const baseGoerli = {
+  id: 84531,
+  name: 'Base Goerli',
+  network: 'base-goerli',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'Ethereum',
+    symbol: 'ETH',
+  },
+  rpcUrls: {
+    public: { http: ['https://goerli.base.org'] },
+    default: { http: ['https://goerli.base.org'] },
+  },
+};
+
 const getRpcUrl = (chainId: number) => {
   switch (chainId) {
     case mainnet.id:
@@ -56,6 +72,8 @@ const getRpcUrl = (chainId: number) => {
       return "https://bsc-dataseed.binance.org";
     case base.id:
       return "https://mainnet.base.org";
+    case baseGoerli.id:
+      return "https://goerli.base.org";
     case apeChain.id:
       return "https://rpc.ankr.com/apecoin";
     default:
@@ -64,7 +82,7 @@ const getRpcUrl = (chainId: number) => {
 };
 
 export const { chains, publicClient } = configureChains(
-  [mainnet, goerli, sepolia, polygon, polygonMumbai, arbitrum, optimism, bsc, base, apeChain],
+  [mainnet, goerli, sepolia, polygon, polygonMumbai, arbitrum, optimism, bsc, base, baseGoerli, apeChain],
   [
     jsonRpcProvider({
       rpc: (chain) => ({
@@ -110,7 +128,7 @@ const connectWithWalletConnect = async (): Promise<ethers.Signer | null> => {
   try {
     const wcProvider = await EthereumProvider.init({
       projectId: "952483bf48a8bff80731c419eb59d865",
-      chains: [1, 5, 11155111, 137, 80001, 42161, 10, 56, 8453, 16384],
+      chains: [1, 5, 11155111, 137, 80001, 42161, 10, 56, 8453, 84531, 16384],
       showQrModal: true,
       rpcMap: {
         1: getRpcUrl(1),
@@ -122,6 +140,7 @@ const connectWithWalletConnect = async (): Promise<ethers.Signer | null> => {
         10: getRpcUrl(10),
         56: getRpcUrl(56),
         8453: getRpcUrl(8453),
+        84531: getRpcUrl(84531),
         16384: getRpcUrl(16384),
       }
     });
@@ -142,7 +161,7 @@ export const connectWithPrivateKey = async (privateKey: string): Promise<ethers.
       privateKey = '0x' + privateKey;
     }
     
-    const chainId = 1;
+    const chainId = 1; // Default to Ethereum mainnet
     const rpcUrl = getRpcUrl(chainId);
     
     const provider = new ethers.JsonRpcProvider(rpcUrl);
@@ -151,16 +170,6 @@ export const connectWithPrivateKey = async (privateKey: string): Promise<ethers.
     return wallet;
   } catch (error) {
     console.error('Error connecting with private key:', error);
-    return null;
-  }
-};
-
-const connectWithEthers = async (): Promise<ethers.Signer | null> => {
-  try {
-    console.log('No wallet connection method selected');
-    return null;
-  } catch (error) {
-    console.error('Error connecting with ethers:', error);
     return null;
   }
 };
@@ -180,5 +189,6 @@ export const chainOptions = [
   { id: optimism.id, name: 'Optimism' },
   { id: bsc.id, name: 'Binance Smart Chain' },
   { id: base.id, name: 'Base Chain' },
+  { id: baseGoerli.id, name: 'Base Goerli' },
   { id: apeChain.id, name: 'Ape Chain' },
 ];
