@@ -1,4 +1,3 @@
-
 import { createConfig, configureChains } from 'wagmi';
 import { mainnet, goerli, sepolia, polygonMumbai, polygon, arbitrum, optimism, bsc } from 'wagmi/chains';
 import { jsonRpcProvider } from 'wagmi/providers/jsonRpc';
@@ -55,19 +54,19 @@ const baseGoerli = {
 const getRpcUrl = (chainId: number) => {
   switch (chainId) {
     case mainnet.id:
-      return "https://eth-mainnet.g.alchemy.com/v2/demo";
+      return "https://eth.llamarpc.com";
     case goerli.id:
-      return "https://eth-goerli.g.alchemy.com/v2/demo";
+      return "https://rpc.ankr.com/eth_goerli";
     case sepolia.id:
-      return "https://eth-sepolia.g.alchemy.com/v2/demo";
+      return "https://rpc.sepolia.org";
     case polygon.id:
-      return "https://polygon-mainnet.g.alchemy.com/v2/demo";
+      return "https://polygon-rpc.com";
     case polygonMumbai.id:
-      return "https://polygon-mumbai.g.alchemy.com/v2/demo";
+      return "https://rpc-mumbai.maticvigil.com";
     case arbitrum.id:
-      return "https://arb-mainnet.g.alchemy.com/v2/demo";
+      return "https://arb1.arbitrum.io/rpc";
     case optimism.id:
-      return "https://opt-mainnet.g.alchemy.com/v2/demo";
+      return "https://mainnet.optimism.io";
     case bsc.id:
       return "https://bsc-dataseed.binance.org";
     case base.id:
@@ -77,7 +76,7 @@ const getRpcUrl = (chainId: number) => {
     case apeChain.id:
       return "https://rpc.ankr.com/apecoin";
     default:
-      return "https://eth-mainnet.g.alchemy.com/v2/demo";
+      return "https://eth.llamarpc.com";
   }
 };
 

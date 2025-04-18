@@ -1,28 +1,29 @@
+
 import { ethers } from 'ethers';
 import { toast } from 'sonner';
 
 function getProvider(chainId: number): ethers.Provider {
   switch (chainId) {
     case 1: // Ethereum Mainnet
-      return new ethers.JsonRpcProvider('https://mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID');
+      return new ethers.JsonRpcProvider('https://eth.llamarpc.com');
     case 5: // Goerli
-      return new ethers.JsonRpcProvider('https://goerli.infura.io/v3/YOUR_INFURA_PROJECT_ID');
+      return new ethers.JsonRpcProvider('https://rpc.ankr.com/eth_goerli');
     case 11155111: // Sepolia
-      return new ethers.JsonRpcProvider('https://sepolia.infura.io/v3/YOUR_INFURA_PROJECT_ID');
+      return new ethers.JsonRpcProvider('https://rpc.sepolia.org');
     case 137: // Polygon
-      return new ethers.JsonRpcProvider('https://polygon-mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID');
+      return new ethers.JsonRpcProvider('https://polygon-rpc.com');
     case 80001: // Mumbai
-      return new ethers.JsonRpcProvider('https://mumbai.infura.io/v3/YOUR_INFURA_PROJECT_ID');
+      return new ethers.JsonRpcProvider('https://rpc-mumbai.maticvigil.com');
     case 42161: // Arbitrum
-      return new ethers.JsonRpcProvider('https://arb-mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID');
+      return new ethers.JsonRpcProvider('https://arb1.arbitrum.io/rpc');
     case 10: // Optimism
-      return new ethers.JsonRpcProvider('https://optimism-mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID');
+      return new ethers.JsonRpcProvider('https://mainnet.optimism.io');
     case 56: // BSC
-      return new ethers.JsonRpcProvider('https://bsc-mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID');
+      return new ethers.JsonRpcProvider('https://bsc-dataseed.binance.org');
     case 8453: // Base
-      return new ethers.JsonRpcProvider('https://base-mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID');
-    case 420: // Base Goerli
-      return new ethers.JsonRpcProvider('https://base-goerli.public.blastapi.io');
+      return new ethers.JsonRpcProvider('https://mainnet.base.org');
+    case 84531: // Base Goerli
+      return new ethers.JsonRpcProvider('https://goerli.base.org');
     default:
       throw new Error(`Unsupported chain ID: ${chainId}`);
   }

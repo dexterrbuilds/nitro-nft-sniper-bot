@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useAccount, useConnect, useDisconnect, useEnsName } from 'wagmi';
 import { Button } from '@/components/ui/button';
 import { shortenAddress } from '@/lib/contractUtils';
-import { Wallet, Key, X } from 'lucide-react';
+import { Wallet, Key, X, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { connectWithPrivateKey } from '@/lib/web3Config';
 import { ethers } from 'ethers';
@@ -42,7 +42,10 @@ const ConnectWallet: React.FC = () => {
     const displayAddress = privateKeyAddress || address;
     return (
       <div className="flex items-center gap-2">
-        <div className="px-3 py-1.5 rounded bg-cyber-dark border border-cyber-accent/30 text-sm font-mono">
+        <div className="px-3 py-1.5 rounded bg-cyber-dark border border-cyber-accent/30 text-sm font-mono flex items-center">
+          {privateKeyAddress && (
+            <Shield className="w-3 h-3 mr-1.5 text-cyber-accent" />
+          )}
           {ensName || shortenAddress(displayAddress as string)}
         </div>
         <Button

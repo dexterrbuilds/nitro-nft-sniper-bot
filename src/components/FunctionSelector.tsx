@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
+import { Search, AlertTriangle } from "lucide-react";
 import { Button } from '@/components/ui/button';
 
 interface FunctionSelectorProps {
@@ -21,8 +21,20 @@ const FunctionSelector: React.FC<FunctionSelectorProps> = ({
 
   if (!functions || functions.length === 0) {
     return (
-      <div className="cyber-panel bg-cyber-dark/50 p-3 text-sm">
-        <p className="text-muted-foreground italic">No functions detected in this contract.</p>
+      <div className="cyber-panel bg-cyber-dark/50 p-4 rounded-md border border-amber-500/30">
+        <div className="flex items-center text-amber-400 mb-2">
+          <AlertTriangle className="w-4 h-4 mr-2" />
+          <p className="font-medium">No Contract Functions Available</p>
+        </div>
+        <p className="text-muted-foreground text-sm">
+          Could not detect any functions in this contract. This could be due to:
+        </p>
+        <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc pl-5">
+          <li>Invalid contract address</li>
+          <li>Network connectivity issues</li>
+          <li>Contract not verified on block explorer</li>
+          <li>Contract using a non-standard ABI format</li>
+        </ul>
       </div>
     );
   }
