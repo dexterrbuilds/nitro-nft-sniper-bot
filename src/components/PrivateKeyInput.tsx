@@ -15,7 +15,7 @@ interface PrivateKeyInputProps {
 const PrivateKeyInput: React.FC<PrivateKeyInputProps> = ({ onConnect }) => {
   const [privateKey, setPrivateKey] = useState<string>('');
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
-  const [selectedChainId, setSelectedChainId] = useState<number>(1);
+  const [selectedChainId, setSelectedChainId] = useState<number>(8453); // Base Chain
   const [connectedAddress, setConnectedAddress] = useState<string>('');
 
   const handleConnect = async () => {
@@ -37,7 +37,7 @@ const PrivateKeyInput: React.FC<PrivateKeyInputProps> = ({ onConnect }) => {
         console.log("Connected with private key, address:", address);
         setConnectedAddress(address);
         
-        const chainName = chainOptions.find(chain => chain.id === selectedChainId)?.name || 'Unknown Network';
+        const chainName = chainOptions.find(chain => chain.id === selectedChainId)?.name || 'Base Chain';
         toast.success(`Connected to ${chainName}: ${address.slice(0, 6)}...${address.slice(-4)}`);
         
         setTimeout(() => {
@@ -55,6 +55,7 @@ const PrivateKeyInput: React.FC<PrivateKeyInputProps> = ({ onConnect }) => {
     }
   };
 
+  // Modify the Select to only show Base Chain
   return (
     <div className="space-y-3 p-4 border border-amber-500/30 rounded-md bg-amber-950/20">
       <div className="text-amber-500 text-xs mb-2">
@@ -63,23 +64,14 @@ const PrivateKeyInput: React.FC<PrivateKeyInputProps> = ({ onConnect }) => {
       
       <div className="space-y-2">
         <Label htmlFor="chain-select" className="text-xs text-muted-foreground">
-          Select Network
+          Selected Network
         </Label>
-        <Select 
-          value={selectedChainId.toString()} 
-          onValueChange={(value) => setSelectedChainId(parseInt(value))}
-        >
-          <SelectTrigger id="chain-select" className="bg-background/50">
-            <SelectValue placeholder="Select network" />
-          </SelectTrigger>
-          <SelectContent>
-            {chainOptions.map((chain) => (
-              <SelectItem key={chain.id} value={chain.id.toString()}>
-                {chain.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Input 
+          type="text" 
+          value="Base Chain" 
+          readOnly 
+          className="bg-gray-100 cursor-not-allowed" 
+        />
       </div>
       
       {connectedAddress && (

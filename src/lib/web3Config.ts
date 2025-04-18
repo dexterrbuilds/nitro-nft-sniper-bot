@@ -1,4 +1,3 @@
-
 import { createConfig, configureChains } from 'wagmi';
 import { mainnet, goerli, sepolia, polygonMumbai, polygon, arbitrum, optimism, bsc } from 'wagmi/chains';
 import { jsonRpcProvider } from 'wagmi/providers/jsonRpc';
@@ -71,7 +70,7 @@ const getRpcUrl = (chainId: number) => {
     case bsc.id:
       return "https://bsc-dataseed.binance.org";
     case base.id:
-      return "https://base-mainnet.infura.io/v3/e71df1da5d774ea39acec70e9b6091df"; // Updated Infura endpoint
+      return "https://base-mainnet.infura.io/v3/e71df1da5d774ea39acec70e9b6091df";
     case baseGoerli.id:
       return "https://goerli.base.org";
     case apeChain.id:
@@ -161,7 +160,7 @@ export const connectWithPrivateKey = async (privateKey: string): Promise<ethers.
       privateKey = '0x' + privateKey;
     }
     
-    const chainId = 1; // Default to Ethereum mainnet
+    const chainId = 1;
     const rpcUrl = getRpcUrl(chainId);
     
     const provider = new ethers.JsonRpcProvider(rpcUrl);
@@ -180,15 +179,11 @@ export const getEthersProvider = (chainId: number): ethers.JsonRpcProvider => {
 };
 
 export const chainOptions = [
-  { id: mainnet.id, name: 'Ethereum Mainnet' },
-  { id: goerli.id, name: 'Goerli Testnet' },
-  { id: sepolia.id, name: 'Sepolia Testnet' },
-  { id: polygon.id, name: 'Polygon Mainnet' },
-  { id: polygonMumbai.id, name: 'Polygon Mumbai' },
-  { id: arbitrum.id, name: 'Arbitrum' },
-  { id: optimism.id, name: 'Optimism' },
-  { id: bsc.id, name: 'Binance Smart Chain' },
   { id: base.id, name: 'Base Chain' },
-  { id: baseGoerli.id, name: 'Base Goerli' },
-  { id: apeChain.id, name: 'Ape Chain' },
+  { id: baseGoerli.id, name: 'Base Goerli (Coming Soon)', disabled: true },
+  { id: mainnet.id, name: 'Ethereum Mainnet (Coming Soon)', disabled: true },
+  { id: polygon.id, name: 'Polygon (Coming Soon)', disabled: true },
+  { id: arbitrum.id, name: 'Arbitrum (Coming Soon)', disabled: true },
+  { id: optimism.id, name: 'Optimism (Coming Soon)', disabled: true },
+  { id: bsc.id, name: 'Binance Smart Chain (Coming Soon)', disabled: true },
 ];
