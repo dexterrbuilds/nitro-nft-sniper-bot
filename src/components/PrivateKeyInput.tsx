@@ -15,7 +15,8 @@ interface PrivateKeyInputProps {
 const PrivateKeyInput: React.FC<PrivateKeyInputProps> = ({ onConnect }) => {
   const [privateKey, setPrivateKey] = useState<string>('');
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
-  const [selectedChainId, setSelectedChainId] = useState<number>(1); // Default to Ethereum mainnet
+  const [selectedChainId, setSelectedChainId] = useState<number>(1);
+  const [connectedAddress, setConnectedAddress] = useState<string>('');
 
   const handleConnect = async () => {
     if (!privateKey || privateKey.trim() === '') {
@@ -26,24 +27,19 @@ const PrivateKeyInput: React.FC<PrivateKeyInputProps> = ({ onConnect }) => {
     setIsConnecting(true);
     
     try {
-      // Create a local copy of the private key to avoid state access during async operations
       const keyToConnect = privateKey.trim();
-      
-      // Clear the private key from state for security immediately
       setPrivateKey('');
       
-      // Pass only the private key, the chainId will be handled in web3Config.ts
       const signer = await connectWithPrivateKey(keyToConnect);
       
       if (signer) {
         const address = await signer.getAddress();
         console.log("Connected with private key, address:", address);
+        setConnectedAddress(address);
         
-        // Get chain name for the toast message
         const chainName = chainOptions.find(chain => chain.id === selectedChainId)?.name || 'Unknown Network';
         toast.success(`Connected to ${chainName}: ${address.slice(0, 6)}...${address.slice(-4)}`);
         
-        // Call onConnect outside of state update to prevent freezing
         setTimeout(() => {
           onConnect(address);
         }, 0);
@@ -53,6 +49,7 @@ const PrivateKeyInput: React.FC<PrivateKeyInputProps> = ({ onConnect }) => {
     } catch (error) {
       console.error('Error connecting with private key:', error);
       toast.error('Failed to connect with private key');
+      setConnectedAddress('');
     } finally {
       setIsConnecting(false);
     }
@@ -84,6 +81,13 @@ const PrivateKeyInput: React.FC<PrivateKeyInputProps> = ({ onConnect }) => {
           </SelectContent>
         </Select>
       </div>
+      
+      {connectedAddress && (
+        <div className="p-2 bg-green-950/20 border border-green-500/30 rounded text-sm">
+          <span className="text-green-500">Connected: </span>
+          <span className="font-mono">{connectedAddress.slice(0, 6)}...{connectedAddress.slice(-4)}</span>
+        </div>
+      )}
       
       <Input
         type="password"
