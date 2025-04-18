@@ -22,23 +22,33 @@ const ConnectWallet: React.FC = () => {
   const { data: ensName } = useEnsName({ address });
   const { disconnect } = useDisconnect();
   const [privateKeyDialogOpen, setPrivateKeyDialogOpen] = useState(false);
+  const [privateKeyAddress, setPrivateKeyAddress] = useState<string | null>(null);
 
   // Handle private key connection
   const handlePrivateKeyConnect = (address: string) => {
-    console.log("Connected with private key, address:", address);
+    setPrivateKeyAddress(address);
     setPrivateKeyDialogOpen(false);
   };
 
-  if (isConnected) {
+  const handleDisconnect = () => {
+    if (isConnected) {
+      disconnect();
+    }
+    setPrivateKeyAddress(null);
+  };
+
+  // Show connected state for either wallet or private key
+  if (isConnected || privateKeyAddress) {
+    const displayAddress = privateKeyAddress || address;
     return (
       <div className="flex items-center gap-2">
         <div className="px-3 py-1.5 rounded bg-cyber-dark border border-cyber-accent/30 text-sm font-mono">
-          {ensName || shortenAddress(address as string)}
+          {ensName || shortenAddress(displayAddress as string)}
         </div>
         <Button
           variant="outline"
           size="sm"
-          onClick={() => disconnect()}
+          onClick={handleDisconnect}
           className="cyber-button-alt"
         >
           Disconnect

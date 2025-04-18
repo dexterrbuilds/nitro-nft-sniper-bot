@@ -47,8 +47,9 @@ export const fetchContractABI = async (
     
     // Contract exists, try to get verified ABI from block explorer
     let apiUrl;
-    let apiKey = '8UQEY8RYB6GM76IMIGNZTU29K3KA5UNN8P'; // User's BaseScan API key
+    let apiKey = '8UQEY8RYB6GM76IMIGNZTU29K3KA5UNN8P'; // BaseScan API key
     
+    // Determine which explorer API to use based on chainId
     switch (chainId) {
       case 1: // Ethereum Mainnet
         apiUrl = `https://api.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=NPXSNH347JW6C5XBKWG89DJD6CK2CSCVNT`;
@@ -75,10 +76,8 @@ export const fetchContractABI = async (
         apiUrl = `https://api.bscscan.com/api?module=contract&action=getabi&address=${address}&apikey=YKPWT5K3G5AMK8XV77CUWTNCGF1IXJ4P39`;
         break;
       case 8453: // Base
-        apiUrl = `https://api.basescan.org/api?module=contract&action=getabi&address=${address}&apikey=${apiKey}`;
-        break;
-      case 420: // Base Goerli
-        apiUrl = `https://api-goerli.basescan.org/api?module=contract&action=getabi&address=${address}&apikey=${apiKey}`;
+      case 84531: // Base Goerli
+        apiUrl = `https://api${chainId === 84531 ? '-goerli' : ''}.basescan.org/api?module=contract&action=getabi&address=${address}&apikey=${apiKey}`;
         break;
       default:
         console.log('No block explorer API available for this chain, using smart detection');
@@ -97,7 +96,6 @@ export const fetchContractABI = async (
 
     if (data.status === '1' && data.result) {
       try {
-        // Try to parse the ABI
         const abi = JSON.parse(data.result);
         console.log('Successfully fetched verified ABI:', abi);
         return abi;
@@ -106,14 +104,10 @@ export const fetchContractABI = async (
         return getSmartDetectedABI(bytecode);
       }
     } else {
-      console.log('Contract not verified or API key issue, using smart detection');
-      console.log('API error message:', data.message || 'Unknown error');
-      
-      // If there's an API key error, let the user know
+      console.log('Contract not verified or API error, using smart detection');
       if (data.message && data.message.includes('API Key')) {
         toast.warning("Block explorer API key issue - using fallback ABI detection");
       }
-      
       return getSmartDetectedABI(bytecode);
     }
   } catch (error) {
