@@ -1,3 +1,4 @@
+
 import { createConfig, configureChains } from 'wagmi';
 import { mainnet, goerli, sepolia, polygonMumbai, polygon, arbitrum, optimism, bsc } from 'wagmi/chains';
 import { jsonRpcProvider } from 'wagmi/providers/jsonRpc';
@@ -70,7 +71,7 @@ const getRpcUrl = (chainId: number) => {
     case bsc.id:
       return "https://bsc-dataseed.binance.org";
     case base.id:
-      return "https://mainnet.base.org";
+      return "https://base-mainnet.infura.io/v3/e71df1da5d774ea39acec70e9b6091df"; // Updated Infura endpoint
     case baseGoerli.id:
       return "https://goerli.base.org";
     case apeChain.id:
