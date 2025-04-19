@@ -8,23 +8,29 @@ import { Slider } from "@/components/ui/slider";
 import { useAccount, useBalance } from 'wagmi';
 import { parseEth, formatEth } from '@/lib/contractUtils';
 import { toast } from 'sonner';
+import TimerScheduler from './TimerScheduler';
+import { v4 as uuidv4 } from 'uuid';
 
 interface FunctionFormProps {
   functionName: string;
   functionDetails: { name: string; inputs: any[]; payable: boolean };
   onSubmit: (args: any[], value: string) => void;
+  onSchedule?: (id: string, time: number, args: any[], value: string) => void;
   isLoading: boolean;
   walletRequired?: boolean;
   walletConnected?: boolean;
+  contractAddress: string;
 }
 
 const FunctionForm: React.FC<FunctionFormProps> = ({
   functionName,
   functionDetails,
   onSubmit,
+  onSchedule,
   isLoading,
   walletRequired = false,
   walletConnected = false,
+  contractAddress,
 }) => {
   const { address } = useAccount();
   const { data: balance } = useBalance({ address });
@@ -136,6 +142,38 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
     
     onSubmit(args, ethValue);
   };
+  
+  const handleScheduleTransaction = (scheduledTime: number, callback: () => Promise<void>) => {
+    // Validate inputs before scheduling
+    for (let i = 0; i < functionDetails.inputs.length; i++) {
+      const input = functionDetails.inputs[i];
+      const arg = args[i];
+      
+      if (arg === '' || arg === undefined) {
+        toast.error(`${input.name || `Parameter #${i+1}`} is required for scheduling`);
+        return;
+      }
+      
+      if (input.type === 'address') {
+        if (!ethers.isAddress(arg)) {
+          toast.error(`${input.name || `Parameter #${i+1}`} is not a valid address`);
+          return;
+        }
+      }
+    }
+    
+    // Validate wallet connection
+    if (walletRequired && !walletConnected) {
+      toast.error('Please connect your wallet to schedule this transaction');
+      return;
+    }
+    
+    const transactionId = uuidv4();
+    
+    if (onSchedule) {
+      onSchedule(transactionId, scheduledTime, [...args], ethValue);
+    }
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -212,6 +250,16 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
         {isLoading ? 'Processing...' : `Execute ${functionName}`}
         {walletRequired && !walletConnected && ' (Connect Wallet)'}
       </Button>
+      
+      {/* Add transaction scheduling */}
+      {onSchedule && (
+        <TimerScheduler
+          onSchedule={handleScheduleTransaction}
+          functionName={functionName}
+          contractAddress={contractAddress}
+          isActive={walletConnected && !isLoading}
+        />
+      )}
     </form>
   );
 };

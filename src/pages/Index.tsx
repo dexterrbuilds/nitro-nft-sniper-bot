@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
@@ -16,6 +15,8 @@ import { getEthersProvider } from '@/lib/web3Config';
 import { Info } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import PrivateKeyInput from '@/components/PrivateKeyInput';
+import ScheduledTransactions from '@/components/ScheduledTransactions';
+import { scheduleTransaction, cancelScheduledTransaction } from '@/lib/timerUtils';
 
 // Define a more specific type that allows indexing by string
 type EthersContract = ethers.Contract & {
@@ -71,6 +72,13 @@ const Index = () => {
         console.error('Failed to load last contract', e);
       }
     }
+    
+    return () => {
+      // Clean up scheduled transactions when component unmounts
+      import('@/lib/timerUtils').then(({ clearAllScheduledTransactions }) => {
+        clearAllScheduledTransactions();
+      });
+    };
   }, []);
   
   // Save transactions to local storage when they change
@@ -299,6 +307,36 @@ const Index = () => {
     }
   }, [contract, selectedFunction, selectedFunctionDetails, privateKeySigner, contractAddress]);
 
+  // Schedule a transaction for later execution
+  const handleScheduleTransaction = useCallback((
+    id: string, 
+    scheduledTime: number, 
+    args: any[], 
+    value: string
+  ) => {
+    if (!contract || !selectedFunction || !selectedFunctionDetails || !privateKeySigner) {
+      toast.error('Contract not loaded, function not selected, or wallet not connected');
+      return;
+    }
+    
+    // Create a callback function to execute at the scheduled time
+    const executionCallback = async () => {
+      // This will run when the scheduled time is reached
+      return handleExecuteFunction(args, value);
+    };
+    
+    // Schedule the transaction
+    scheduleTransaction({
+      id,
+      functionName: selectedFunction,
+      contractAddress: contractAddress,
+      args,
+      value,
+      scheduledTime,
+      executionCallback
+    });
+  }, [contract, selectedFunction, selectedFunctionDetails, privateKeySigner, contractAddress, handleExecuteFunction]);
+
   // New function to handle private key connection
   const handlePrivateKeyConnect = (address: string) => {
     // The signer is already set in the web3Config.ts via an event
@@ -345,6 +383,7 @@ const Index = () => {
             </CardHeader>
             <CardContent>
               <TransactionHistory transactions={transactions} />
+              <ScheduledTransactions />
             </CardContent>
           </Card>
         </div>
@@ -417,9 +456,11 @@ const Index = () => {
                         functionName={selectedFunction}
                         functionDetails={selectedFunctionDetails}
                         onSubmit={handleExecuteFunction}
+                        onSchedule={handleScheduleTransaction}
                         isLoading={isExecuting}
                         walletRequired={true}
                         walletConnected={!!privateKeySigner}
+                        contractAddress={contractAddress}
                       />
                     )}
                   </TabsContent>
