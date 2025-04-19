@@ -51,6 +51,51 @@ const baseGoerli = {
   },
 };
 
+const beraChain = {
+  id: 80085,
+  name: 'Berachain',
+  network: 'berachain',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'BERA',
+    symbol: 'BERA',
+  },
+  rpcUrls: {
+    public: { http: ['https://berachain-mainnet.g.alchemy.com/v2/HH7IEuZ2i6-7pXDbtM3LHG_0zOHao5LR'] },
+    default: { http: ['https://berachain-mainnet.g.alchemy.com/v2/HH7IEuZ2i6-7pXDbtM3LHG_0zOHao5LR'] },
+  },
+};
+
+const monadChain = {
+  id: 1881,
+  name: 'Monad',
+  network: 'monad-testnet',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'Monad',
+    symbol: 'MONAD',
+  },
+  rpcUrls: {
+    public: { http: ['https://monad-testnet.g.alchemy.com/v2/HH7IEuZ2i6-7pXDbtM3LHG_0zOHao5LR'] },
+    default: { http: ['https://monad-testnet.g.alchemy.com/v2/HH7IEuZ2i6-7pXDbtM3LHG_0zOHao5LR'] },
+  },
+};
+
+const abstractChain = {
+  id: 1718,
+  name: 'Abstract',
+  network: 'abstract-mainnet',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'Abstract',
+    symbol: 'ABS',
+  },
+  rpcUrls: {
+    public: { http: ['https://abstract-mainnet.g.alchemy.com/v2/HH7IEuZ2i6-7pXDbtM3LHG_0zOHao5LR'] },
+    default: { http: ['https://abstract-mainnet.g.alchemy.com/v2/HH7IEuZ2i6-7pXDbtM3LHG_0zOHao5LR'] },
+  },
+};
+
 const getRpcUrl = (chainId: number) => {
   switch (chainId) {
     case mainnet.id:
@@ -75,13 +120,19 @@ const getRpcUrl = (chainId: number) => {
       return "https://goerli.base.org";
     case apeChain.id:
       return "https://rpc.ankr.com/apecoin";
+    case beraChain.id:
+      return "https://berachain-mainnet.g.alchemy.com/v2/HH7IEuZ2i6-7pXDbtM3LHG_0zOHao5LR";
+    case monadChain.id:
+      return "https://monad-testnet.g.alchemy.com/v2/HH7IEuZ2i6-7pXDbtM3LHG_0zOHao5LR";
+    case abstractChain.id:
+      return "https://abstract-mainnet.g.alchemy.com/v2/HH7IEuZ2i6-7pXDbtM3LHG_0zOHao5LR";
     default:
       return "https://eth.llamarpc.com";
   }
 };
 
 export const { chains, publicClient } = configureChains(
-  [mainnet, goerli, sepolia, polygon, polygonMumbai, arbitrum, optimism, bsc, base, baseGoerli, apeChain],
+  [mainnet, goerli, sepolia, polygon, polygonMumbai, arbitrum, optimism, bsc, base, baseGoerli, apeChain, beraChain, monadChain, abstractChain],
   [
     jsonRpcProvider({
       rpc: (chain) => ({
@@ -127,7 +178,7 @@ const connectWithWalletConnect = async (): Promise<ethers.Signer | null> => {
   try {
     const wcProvider = await EthereumProvider.init({
       projectId: "952483bf48a8bff80731c419eb59d865",
-      chains: [1, 5, 11155111, 137, 80001, 42161, 10, 56, 8453, 84531, 16384],
+      chains: [1, 5, 11155111, 137, 80001, 42161, 10, 56, 8453, 84531, 16384, 80085, 1881, 1718],
       showQrModal: true,
       rpcMap: {
         1: getRpcUrl(1),
@@ -141,6 +192,9 @@ const connectWithWalletConnect = async (): Promise<ethers.Signer | null> => {
         8453: getRpcUrl(8453),
         84531: getRpcUrl(84531),
         16384: getRpcUrl(16384),
+        80085: getRpcUrl(80085),
+        1881: getRpcUrl(1881),
+        1718: getRpcUrl(1718),
       }
     });
     
@@ -180,10 +234,8 @@ export const getEthersProvider = (chainId: number): ethers.JsonRpcProvider => {
 
 export const chainOptions = [
   { id: base.id, name: 'Base Chain' },
-  { id: baseGoerli.id, name: 'Base Goerli (Coming Soon)', disabled: true },
-  { id: mainnet.id, name: 'Ethereum Mainnet (Coming Soon)', disabled: true },
-  { id: polygon.id, name: 'Polygon (Coming Soon)', disabled: true },
-  { id: arbitrum.id, name: 'Arbitrum (Coming Soon)', disabled: true },
-  { id: optimism.id, name: 'Optimism (Coming Soon)', disabled: true },
-  { id: bsc.id, name: 'Binance Smart Chain (Coming Soon)', disabled: true },
+  { id: beraChain.id, name: 'Berachain' },
+  { id: monadChain.id, name: 'Monad Testnet' },
+  { id: apeChain.id, name: 'ApeCoin' },
+  { id: abstractChain.id, name: 'Abstract' },
 ];

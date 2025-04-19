@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
@@ -308,7 +309,6 @@ const Index = () => {
   return (
     <Layout>
       <div className="grid md:grid-cols-7 gap-6">
-        {/* Left column: contract inputs and transaction history */}
         <div className="md:col-span-3 space-y-6">
           <Card className="cyber-panel bg-cyber-dark border-cyber-accent/30">
             <CardHeader>
