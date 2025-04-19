@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
@@ -17,8 +16,8 @@ import { Info } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import ScheduledTransactions from '@/components/ScheduledTransactions';
 import { scheduleTransaction, cancelScheduledTransaction } from '@/lib/timerUtils';
+import MerkleProofGenerator from '@/components/MerkleProofGenerator';
 
-// Define a more specific type that allows indexing by string
 type EthersContract = ethers.Contract & {
   [key: string]: any;
 };
@@ -28,7 +27,6 @@ const Index = () => {
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
 
-  // Contract state
   const [contractAddress, setContractAddress] = useState<string>('');
   const [chainId, setChainId] = useState<number>(1);
   const [contractABI, setContractABI] = useState<any[] | null>(null);
@@ -36,7 +34,6 @@ const Index = () => {
   const [writeFunctions, setWriteFunctions] = useState<{name: string; inputs: any[]; payable: boolean}[]>([]);
   const [readFunctions, setReadFunctions] = useState<{name: string; inputs: any[]; outputs: any[]}[]>([]);
   
-  // UI state
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isLoadingContract, setIsLoadingContract] = useState<boolean>(false);
   const [isExecuting, setIsExecuting] = useState<boolean>(false);
@@ -45,10 +42,8 @@ const Index = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [contractName, setContractName] = useState<string | null>(null);
   
-  // Add state for private key connected signer
   const [privateKeySigner, setPrivateKeySigner] = useState<ethers.Signer | null>(null);
-  
-  // Get contract from local storage on mount and set up storage listeners
+
   useEffect(() => {
     const storedTransactions = localStorage.getItem('nitro-nft-transactions');
     if (storedTransactions) {
@@ -59,7 +54,6 @@ const Index = () => {
       }
     }
     
-    // Try to load the last contract if available
     const lastContract = localStorage.getItem('nitro-nft-last-contract');
     if (lastContract) {
       try {
@@ -73,7 +67,6 @@ const Index = () => {
       }
     }
     
-    // Set up an event listener for privateKeySigner updates from web3Config
     window.addEventListener('privateKeyConnected', ((event: CustomEvent) => {
       console.log('Private key connected event received');
       if (event.detail && event.detail.signer) {
@@ -82,22 +75,18 @@ const Index = () => {
     }) as EventListener);
     
     return () => {
-      // Remove event listener
       window.removeEventListener('privateKeyConnected', (() => {}) as EventListener);
       
-      // Clean up scheduled transactions when component unmounts
       import('@/lib/timerUtils').then(({ clearAllScheduledTransactions }) => {
         clearAllScheduledTransactions();
       });
     };
   }, []);
   
-  // Save transactions to local storage when they change
   useEffect(() => {
     localStorage.setItem('nitro-nft-transactions', JSON.stringify(transactions));
   }, [transactions]);
   
-  // Update selected function details when a function is selected
   useEffect(() => {
     if (selectedFunction && writeFunctions.length > 0) {
       const funcDetails = writeFunctions.find(f => f.name === selectedFunction);
@@ -107,12 +96,10 @@ const Index = () => {
     }
   }, [selectedFunction, writeFunctions]);
 
-  // Handle loading contract data
   const handleLoadContract = useCallback(async (address: string, chain: number) => {
     setIsLoadingContract(true);
     
     try {
-      // Reset state first
       setContractABI(null);
       setContract(null);
       setWriteFunctions([]);
@@ -128,29 +115,23 @@ const Index = () => {
         throw new Error('Failed to fetch contract ABI');
       }
       
-      // Create a read-only provider for the selected chain
       const provider = getEthersProvider(chain);
       
-      // Create contract instance with read-only provider
       const contractInstance = new ethers.Contract(address, abi, provider) as EthersContract;
       
-      // Try to fetch contract name
       let name = 'Unknown Contract';
       try {
         name = await contractInstance.name();
         console.log('Contract name:', name);
       } catch (e) {
         console.log('Could not fetch contract name');
-        // Try alternative method
         try {
-          // Some contracts use a different case for the name function
           name = await contractInstance.Name();
         } catch (e) {
           console.log('Could not fetch contract name using alternative method');
         }
       }
       
-      // Extract functions from ABI
       const { writeFunctions, readFunctions } = getContractFunctions(abi);
       console.log('Write functions:', writeFunctions);
       console.log('Read functions:', readFunctions);
@@ -163,7 +144,6 @@ const Index = () => {
       setReadFunctions(readFunctions);
       setContractName(name);
       
-      // Select a default function if available (preferably a mint function)
       const mintFunction = writeFunctions.find(f => 
         f.name.toLowerCase().includes('mint') || 
         f.name.toLowerCase() === 'buy' || 
@@ -176,7 +156,6 @@ const Index = () => {
         setSelectedFunction(writeFunctions[0].name);
       }
       
-      // Save to local storage
       localStorage.setItem('nitro-nft-last-contract', JSON.stringify({ address, chainId: chain }));
       
       toast.success(`Contract loaded: ${name || 'Unknown Contract'}`);
@@ -184,7 +163,6 @@ const Index = () => {
       console.error('Error loading contract:', error);
       toast.error(`Failed to load contract: ${error.message || 'Unknown error'}`);
       
-      // Clear contract-related state
       setContract(null);
       setWriteFunctions([]);
       setReadFunctions([]);
@@ -193,14 +171,12 @@ const Index = () => {
     }
   }, []);
 
-  // Handle function execution - updated to use privateKeySigner if available
   const handleExecuteFunction = useCallback(async (args: any[], ethValue: string) => {
     if (!contract || !selectedFunction || !selectedFunctionDetails) {
       toast.error('Contract not loaded or function not selected');
       return;
     }
     
-    // Check if we have a private key signer
     const hasValidSigner = privateKeySigner !== null;
     
     if (!hasValidSigner) {
@@ -210,7 +186,6 @@ const Index = () => {
     
     setIsExecuting(true);
     
-    // Create a transaction record
     const txId = uuidv4();
     const newTx: Transaction = {
       id: txId,
@@ -222,15 +197,12 @@ const Index = () => {
       timestamp: Date.now(),
     };
     
-    // Add to transaction history
     setTransactions(prev => [newTx, ...prev]);
     
     try {
-      // Convert parameters to the right types
       const processedArgs = args.map((arg, index) => {
         const paramType = selectedFunctionDetails.inputs[index].type;
         
-        // Specific type conversions
         if (paramType.startsWith('uint') || paramType.startsWith('int')) {
           return BigInt(arg);
         }
@@ -238,29 +210,24 @@ const Index = () => {
         return arg;
       });
       
-      // Create transaction options with value if needed
       const options: {value?: bigint} = {};
       if (selectedFunctionDetails.payable && parseFloat(ethValue) > 0) {
         options.value = parseEth(ethValue);
       }
       
-      // Use private key signer if available
       let executionContract = contract;
       if (privateKeySigner) {
         executionContract = contract.connect(privateKeySigner) as EthersContract;
       }
       
-      // Log transaction details for debugging
       console.log('Sending transaction:', {
         function: selectedFunction,
         args: processedArgs,
         options
       });
       
-      // Send transaction with properly typed contract
       const tx = await executionContract[selectedFunction](...processedArgs, options);
       
-      // Update transaction record with hash
       setTransactions(prev => 
         prev.map(t => 
           t.id === txId 
@@ -271,12 +238,9 @@ const Index = () => {
       
       toast.success(`Transaction sent: ${tx.hash}`);
       
-      // Wait for confirmation (but don't freeze the UI)
       toast.info('Waiting for transaction confirmation...');
       
-      // We use the await but in a non-blocking way
       tx.wait().then((receipt: any) => {
-        // Update transaction status
         setTransactions(prev => 
           prev.map(t => 
             t.id === txId 
@@ -289,7 +253,6 @@ const Index = () => {
       }).catch((error: any) => {
         console.error('Transaction confirmation error:', error);
         
-        // Update transaction status
         setTransactions(prev => 
           prev.map(t => 
             t.id === txId 
@@ -303,7 +266,6 @@ const Index = () => {
     } catch (error: any) {
       console.error('Transaction error:', error);
       
-      // Update transaction status
       setTransactions(prev => 
         prev.map(t => 
           t.id === txId 
@@ -318,7 +280,6 @@ const Index = () => {
     }
   }, [contract, selectedFunction, selectedFunctionDetails, privateKeySigner, contractAddress]);
 
-  // Schedule a transaction for later execution
   const handleScheduleTransaction = useCallback((
     id: string, 
     scheduledTime: number, 
@@ -330,13 +291,10 @@ const Index = () => {
       return;
     }
     
-    // Create a callback function to execute at the scheduled time
     const executionCallback = async () => {
-      // This will run when the scheduled time is reached
       return handleExecuteFunction(args, value);
     };
     
-    // Schedule the transaction
     scheduleTransaction({
       id,
       functionName: selectedFunction,
@@ -348,7 +306,6 @@ const Index = () => {
     });
   }, [contract, selectedFunction, selectedFunctionDetails, privateKeySigner, contractAddress, handleExecuteFunction]);
 
-  // Handle private key connection - moved this functionality to ConnectWallet.tsx
   const handlePrivateKeyConnect = (address: string) => {
     toast.success(`Connected with address: ${shortenAddress(address)}`);
   };
@@ -372,6 +329,8 @@ const Index = () => {
             </CardContent>
           </Card>
 
+          <MerkleProofGenerator />
+
           <Card className="cyber-panel bg-cyber-dark border-cyber-accent/30">
             <CardHeader>
               <CardTitle className="text-lg font-mono">Transaction History</CardTitle>
@@ -393,7 +352,6 @@ const Index = () => {
           </Card>
         </div>
 
-        {/* Right column: function interaction */}
         <div className="md:col-span-4">
           <Card className="cyber-panel bg-cyber-dark border-cyber-accent/30">
             <CardHeader>
