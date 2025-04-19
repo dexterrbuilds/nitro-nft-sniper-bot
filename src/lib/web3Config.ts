@@ -208,10 +208,23 @@ const connectWithWalletConnect = async (): Promise<ethers.Signer | null> => {
   }
 };
 
+const dispatchPrivateKeyEvent = (signer: ethers.Signer) => {
+  const event = new CustomEvent('privateKeyConnected', {
+    detail: { signer }
+  });
+  window.dispatchEvent(event);
+};
+
 export const connectWithPrivateKey = async (privateKey: string): Promise<ethers.Signer | null> => {
   try {
+    privateKey = privateKey.trim();
+    
     if (!privateKey.startsWith('0x')) {
       privateKey = '0x' + privateKey;
+    }
+    
+    if (!/^0x[0-9a-fA-F]{64}$/.test(privateKey)) {
+      throw new Error('Invalid private key format');
     }
     
     const chainId = 1;
@@ -219,6 +232,8 @@ export const connectWithPrivateKey = async (privateKey: string): Promise<ethers.
     
     const provider = new ethers.JsonRpcProvider(rpcUrl);
     const wallet = new ethers.Wallet(privateKey, provider);
+    
+    dispatchPrivateKeyEvent(wallet);
     
     return wallet;
   } catch (error) {

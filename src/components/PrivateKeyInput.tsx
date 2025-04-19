@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -15,6 +15,25 @@ const PrivateKeyInput: React.FC<PrivateKeyInputProps> = ({ onConnect }) => {
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
   const [connectedAddress, setConnectedAddress] = useState<string>('');
 
+  // Listen for private key connection events
+  useEffect(() => {
+    const handlePrivateKeyConnected = (event: CustomEvent) => {
+      if (event.detail && event.detail.signer) {
+        const signer = event.detail.signer as ethers.Signer;
+        signer.getAddress().then(address => {
+          setConnectedAddress(address);
+          onConnect(address);
+        });
+      }
+    };
+
+    window.addEventListener('privateKeyConnected', handlePrivateKeyConnected as EventListener);
+    
+    return () => {
+      window.removeEventListener('privateKeyConnected', handlePrivateKeyConnected as EventListener);
+    };
+  }, [onConnect]);
+
   const handleConnect = async () => {
     if (!privateKey || privateKey.trim() === '') {
       toast.error('Please enter a valid private key');
@@ -25,6 +44,8 @@ const PrivateKeyInput: React.FC<PrivateKeyInputProps> = ({ onConnect }) => {
     
     try {
       const keyToConnect = privateKey.trim();
+      
+      // Clear the input field for security
       setPrivateKey('');
       
       const signer = await connectWithPrivateKey(keyToConnect);
@@ -32,13 +53,10 @@ const PrivateKeyInput: React.FC<PrivateKeyInputProps> = ({ onConnect }) => {
       if (signer) {
         const address = await signer.getAddress();
         console.log("Connected with private key, address:", address);
-        setConnectedAddress(address);
         
         toast.success(`Connected: ${address.slice(0, 6)}...${address.slice(-4)}`);
         
-        setTimeout(() => {
-          onConnect(address);
-        }, 0);
+        // The event listener will handle updating the UI
       } else {
         toast.error('Invalid private key');
       }
@@ -73,11 +91,24 @@ const PrivateKeyInput: React.FC<PrivateKeyInputProps> = ({ onConnect }) => {
       />
       <Button 
         onClick={handleConnect} 
-        disabled={isConnecting}
+        disabled={isConnecting || !!connectedAddress}
         className="w-full cyber-button-alt"
       >
-        {isConnecting ? 'Connecting...' : 'Connect with Private Key'}
+        {isConnecting ? 'Connecting...' : connectedAddress ? 'Connected' : 'Connect with Private Key'}
       </Button>
+      
+      {connectedAddress && (
+        <Button 
+          onClick={() => {
+            setConnectedAddress('');
+            window.location.reload(); // Simple way to reset the app state
+          }} 
+          variant="outline"
+          className="w-full mt-2"
+        >
+          Disconnect
+        </Button>
+      )}
     </div>
   );
 };

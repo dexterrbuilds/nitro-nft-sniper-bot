@@ -1,12 +1,10 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAccount, useConnect, useDisconnect, useEnsName } from 'wagmi';
 import { Button } from '@/components/ui/button';
 import { shortenAddress } from '@/lib/contractUtils';
-import { Wallet, Key, X, Shield } from 'lucide-react';
+import { Key, X, Shield } from 'lucide-react';
 import { toast } from 'sonner';
-import { connectWithPrivateKey } from '@/lib/web3Config';
-import { ethers } from 'ethers';
 import {
   Dialog,
   DialogContent,
@@ -24,6 +22,25 @@ const ConnectWallet: React.FC = () => {
   const [privateKeyDialogOpen, setPrivateKeyDialogOpen] = useState(false);
   const [privateKeyAddress, setPrivateKeyAddress] = useState<string | null>(null);
 
+  // Listen for private key connection events
+  useEffect(() => {
+    const handlePrivateKeyConnected = (event: CustomEvent) => {
+      if (event.detail && event.detail.signer) {
+        const signer = event.detail.signer as any;
+        signer.getAddress().then((address: string) => {
+          setPrivateKeyAddress(address);
+          setPrivateKeyDialogOpen(false);
+        });
+      }
+    };
+
+    window.addEventListener('privateKeyConnected', handlePrivateKeyConnected as EventListener);
+    
+    return () => {
+      window.removeEventListener('privateKeyConnected', handlePrivateKeyConnected as EventListener);
+    };
+  }, []);
+
   // Handle private key connection
   const handlePrivateKeyConnect = (address: string) => {
     setPrivateKeyAddress(address);
@@ -35,6 +52,7 @@ const ConnectWallet: React.FC = () => {
       disconnect();
     }
     setPrivateKeyAddress(null);
+    window.location.reload(); // Simple way to reset the app state
   };
 
   // Show connected state for either wallet or private key

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
@@ -14,7 +15,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { getEthersProvider } from '@/lib/web3Config';
 import { Info } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import PrivateKeyInput from '@/components/PrivateKeyInput';
 import ScheduledTransactions from '@/components/ScheduledTransactions';
 import { scheduleTransaction, cancelScheduledTransaction } from '@/lib/timerUtils';
 
@@ -73,7 +73,18 @@ const Index = () => {
       }
     }
     
+    // Set up an event listener for privateKeySigner updates from web3Config
+    window.addEventListener('privateKeyConnected', ((event: CustomEvent) => {
+      console.log('Private key connected event received');
+      if (event.detail && event.detail.signer) {
+        setPrivateKeySigner(event.detail.signer);
+      }
+    }) as EventListener);
+    
     return () => {
+      // Remove event listener
+      window.removeEventListener('privateKeyConnected', (() => {}) as EventListener);
+      
       // Clean up scheduled transactions when component unmounts
       import('@/lib/timerUtils').then(({ clearAllScheduledTransactions }) => {
         clearAllScheduledTransactions();
@@ -337,10 +348,8 @@ const Index = () => {
     });
   }, [contract, selectedFunction, selectedFunctionDetails, privateKeySigner, contractAddress, handleExecuteFunction]);
 
-  // New function to handle private key connection
+  // Handle private key connection - moved this functionality to ConnectWallet.tsx
   const handlePrivateKeyConnect = (address: string) => {
-    // The signer is already set in the web3Config.ts via an event
-    // Just update the UI to reflect the connection
     toast.success(`Connected with address: ${shortenAddress(address)}`);
   };
 
@@ -360,10 +369,6 @@ const Index = () => {
                 onSubmit={handleLoadContract}
                 isLoading={isLoadingContract}
               />
-              
-              <div className="mt-6">
-                <PrivateKeyInput onConnect={handlePrivateKeyConnect} />
-              </div>
             </CardContent>
           </Card>
 
