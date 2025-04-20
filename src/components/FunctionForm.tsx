@@ -4,11 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAccount, useBalance } from 'wagmi';
 import { parseEth, formatEth } from '@/lib/contractUtils';
 import { toast } from 'sonner';
 import TimerScheduler from './TimerScheduler';
 import { v4 as uuidv4 } from 'uuid';
+import { AlertTriangle } from 'lucide-react';
 
 interface FunctionFormProps {
   functionSignature: string; // Now using full signature instead of just name
@@ -35,8 +37,9 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
   const { data: balance } = useBalance({ address });
   
   const [args, setArgs] = useState<any[]>([]);
-  const [ethValue, setEthValue] = useState<string>('0');
+  const [ethValue, setEthValue] = useState<string>('0'); // Start with 0 ETH by default
   const [gasPriority, setGasPriority] = useState<number>(50); // 50% as default
+  const [insufficientFunds, setInsufficientFunds] = useState<boolean>(false);
   
   // Reset form when function changes
   useEffect(() => {
@@ -59,8 +62,22 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
     });
     
     setArgs(initialArgs);
-    setEthValue(functionDetails.payable ? '0.01' : '0'); // Set default ETH if payable
+    // Set default ETH to 0 for payable functions
+    setEthValue(functionDetails.payable ? '0' : '0'); 
   }, [functionSignature, functionDetails, address]);
+
+  // Check for balance when ethValue changes
+  useEffect(() => {
+    if (balance && functionDetails?.payable) {
+      try {
+        const value = parseEth(ethValue || '0');
+        setInsufficientFunds(value > balance.value);
+      } catch (e) {
+        // Invalid ETH value, not setting insufficient funds yet
+        setInsufficientFunds(false);
+      }
+    }
+  }, [ethValue, balance, functionDetails]);
 
   const handleArgChange = (index: number, value: any) => {
     if (!functionDetails || !functionDetails.inputs) return;
@@ -90,6 +107,22 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
     }
     
     setArgs(newArgs);
+  };
+
+  const handleEthValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setEthValue(newValue);
+    
+    // Check if we have sufficient funds
+    if (balance) {
+      try {
+        const value = parseEth(newValue || '0');
+        setInsufficientFunds(value > balance.value);
+      } catch (e) {
+        // Invalid ETH value
+        setInsufficientFunds(false);
+      }
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -134,8 +167,11 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
     // Validate ETH value if payable
     if (functionDetails.payable) {
       try {
-        const value = parseEth(ethValue);
-        if (value < 0n) throw new Error('Negative value');
+        const value = parseEth(ethValue || '0');
+        if (value < 0n) {
+          toast.error('ETH value cannot be negative');
+          return;
+        }
         if (balance && value > balance.value) {
           toast.error('Insufficient funds for this transaction');
           return;
@@ -153,7 +189,7 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
     }
     
     // Pass the full function signature to onSubmit
-    onSubmit(functionSignature, args, ethValue);
+    onSubmit(functionSignature, args, ethValue || '0');
   };
   
   const handleScheduleTransaction = (scheduledTime: number, callback: () => Promise<void>) => {
@@ -183,10 +219,28 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
       return;
     }
     
+    // Validate ETH value if payable
+    if (functionDetails.payable) {
+      try {
+        const value = parseEth(ethValue || '0');
+        if (value < 0n) {
+          toast.error('ETH value cannot be negative');
+          return;
+        }
+        if (balance && value > balance.value) {
+          toast.error('Insufficient funds for this transaction');
+          return;
+        }
+      } catch (e) {
+        toast.error('Invalid ETH amount');
+        return;
+      }
+    }
+    
     const transactionId = uuidv4();
     
     if (onSchedule) {
-      onSchedule(transactionId, scheduledTime, functionSignature, [...args], ethValue);
+      onSchedule(transactionId, scheduledTime, functionSignature, [...args], ethValue || '0');
     }
   };
 
@@ -224,25 +278,36 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
 
       {functionDetails.payable && (
         <div className="grid gap-2">
-          <Label htmlFor="eth-value" className="text-sm font-mono">
-            ETH Value <span className="text-muted-foreground text-xs">(payable)</span>
+          <Label htmlFor="eth-value" className="text-sm font-mono flex items-center">
+            ETH Value <span className="text-muted-foreground text-xs ml-2">(payable)</span>
+            {balance && (
+              <span className="ml-auto text-xs text-muted-foreground">
+                Balance: {formatEth(balance.value)} ETH
+              </span>
+            )}
           </Label>
           <div className="flex gap-2">
             <Input
               id="eth-value"
               type="number"
-              step="0.000001"
+              step="0.0001"
               min="0"
               value={ethValue}
-              onChange={(e) => setEthValue(e.target.value)}
+              onChange={handleEthValueChange}
               placeholder="ETH Amount"
-              className="cyber-input font-mono"
+              className={`cyber-input font-mono ${insufficientFunds ? 'border-red-500' : ''}`}
               disabled={isLoading}
             />
-            <div className="w-24 p-2 border border-cyber-accent/30 rounded text-right text-sm font-mono bg-cyber-dark/50">
-              {balance ? formatEth(balance.value) : '0'} ETH
-            </div>
           </div>
+          
+          {insufficientFunds && (
+            <Alert variant="destructive" className="py-2 mt-1">
+              <AlertTriangle className="h-4 w-4 mr-2" />
+              <AlertDescription className="text-xs">
+                Insufficient funds. Available: {formatEth(balance?.value || 0n)} ETH
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
       )}
 
@@ -273,7 +338,7 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
       <Button 
         type="submit" 
         className="w-full cyber-button font-mono mt-6"
-        disabled={isLoading || (walletRequired && !walletConnected)} 
+        disabled={isLoading || (walletRequired && !walletConnected) || insufficientFunds} 
       >
         {isLoading ? 'Processing...' : `Execute ${displayName}`}
         {walletRequired && !walletConnected && ' (Connect Wallet)'}
@@ -285,7 +350,7 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
           onSchedule={handleScheduleTransaction}
           functionName={displayName}
           contractAddress={contractAddress}
-          isActive={walletConnected && !isLoading}
+          isActive={walletConnected && !isLoading && !insufficientFunds}
         />
       )}
     </form>
