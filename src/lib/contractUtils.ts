@@ -420,6 +420,11 @@ export const parseEth = (value: string): bigint => {
   }
 };
 
+export const getFullFunctionSignature = (functionName, inputs) => {
+  const paramTypes = inputs.map(input => input.type).join(',');
+  return `${functionName}(${paramTypes})`;
+};
+
 export const shortenAddress = (address: string): string => {
   if (!address) return '';
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
