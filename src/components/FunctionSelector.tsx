@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Search, AlertTriangle } from "lucide-react";
+import { getFullFunctionSignature } from '@/lib/contractUtils';
 
 interface FunctionSelectorProps {
   functions: { name: string; inputs: any[]; payable: boolean }[];
-  onSelect: (functionName: string, functionDetails: any) => void; // Updated to pass details
+  onSelect: (functionSignature: string, functionDetails: any) => void;
   selectedFunction: string | null;
 }
 
@@ -16,6 +17,29 @@ const FunctionSelector: React.FC<FunctionSelectorProps> = ({
   selectedFunction,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [functionSignatures, setFunctionSignatures] = useState<any[]>([]);
+
+  // Process functions when they change or search term changes
+  useEffect(() => {
+    if (!functions || functions.length === 0) return;
+
+    // Filter functions based on search term
+    const filteredFunctions = searchTerm
+      ? functions.filter(f => f.name.toLowerCase().includes(searchTerm.toLowerCase()))
+      : functions;
+
+    // Generate unique function signatures
+    const signatures = filteredFunctions.map(func => {
+      const signature = getFullFunctionSignature(func.name, func.inputs);
+      return {
+        ...func,
+        signature,
+        displayName: `${func.name}(${func.inputs.map(i => i.type).join(', ')})${func.payable ? ' (payable)' : ''}`
+      };
+    });
+
+    setFunctionSignatures(signatures);
+  }, [functions, searchTerm]);
 
   if (!functions || functions.length === 0) {
     return (
@@ -37,21 +61,17 @@ const FunctionSelector: React.FC<FunctionSelectorProps> = ({
     );
   }
 
-  // Filter functions based on search term
-  const filteredFunctions = searchTerm
-    ? functions.filter(f => f.name.toLowerCase().includes(searchTerm.toLowerCase()))
-    : functions;
-
-  // Generate unique function signatures to distinguish between overloaded functions
-  const functionSignatures = filteredFunctions.map(func => {
-    const paramTypes = func.inputs.map(input => input.type).join(',');
-    const signature = `${func.name}(${paramTypes})`;
-    return {
-      ...func,
-      signature,
-      displayName: `${func.name}(${func.inputs.map(i => i.type).join(', ')})`
-    };
-  });
+  const handleSelectFunction = (signature: string) => {
+    console.log("Function signature selected:", signature);
+    // Find the full function details by signature
+    const selectedFunc = functionSignatures.find(f => f.signature === signature);
+    if (selectedFunc) {
+      console.log("Found function details:", selectedFunc);
+      onSelect(signature, selectedFunc);
+    } else {
+      console.error("Could not find function details for signature:", signature);
+    }
+  };
 
   // Group functions by category for easier selection
   const mintFunctions = functionSignatures.filter(f => 
@@ -63,14 +83,6 @@ const FunctionSelector: React.FC<FunctionSelectorProps> = ({
   const otherFunctions = functionSignatures.filter(f => 
     !mintFunctions.some(mf => mf.signature === f.signature)
   );
-
-  const handleSelectFunction = (signature: string) => {
-    // Find the full function details by signature
-    const selectedFunc = functionSignatures.find(f => f.signature === signature);
-    if (selectedFunc) {
-      onSelect(selectedFunc.signature, selectedFunc);
-    }
-  };
 
   return (
     <div className="space-y-3">
@@ -102,7 +114,6 @@ const FunctionSelector: React.FC<FunctionSelectorProps> = ({
                 {mintFunctions.map((func) => (
                   <SelectItem key={func.signature} value={func.signature}>
                     {func.displayName}
-                    {func.payable && ' (payable)'}
                   </SelectItem>
                 ))}
               </>
@@ -114,7 +125,6 @@ const FunctionSelector: React.FC<FunctionSelectorProps> = ({
                 {otherFunctions.map((func) => (
                   <SelectItem key={func.signature} value={func.signature}>
                     {func.displayName}
-                    {func.payable && ' (payable)'}
                   </SelectItem>
                 ))}
               </>
