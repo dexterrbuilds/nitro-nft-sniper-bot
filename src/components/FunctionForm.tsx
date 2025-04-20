@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { Button } from "@/components/ui/button";
@@ -12,10 +11,10 @@ import TimerScheduler from './TimerScheduler';
 import { v4 as uuidv4 } from 'uuid';
 
 interface FunctionFormProps {
-  functionName: string;
-  functionDetails: { name: string; inputs: any[]; payable: boolean };
-  onSubmit: (args: any[], value: string) => void;
-  onSchedule?: (id: string, time: number, args: any[], value: string) => void;
+  functionSignature: string; // Now using full signature instead of just name
+  functionDetails: { name: string; inputs: any[]; payable: boolean; signature?: string };
+  onSubmit: (signature: string, args: any[], value: string) => void;
+  onSchedule?: (id: string, time: number, signature: string, args: any[], value: string) => void;
   isLoading: boolean;
   walletRequired?: boolean;
   walletConnected?: boolean;
@@ -23,7 +22,7 @@ interface FunctionFormProps {
 }
 
 const FunctionForm: React.FC<FunctionFormProps> = ({
-  functionName,
+  functionSignature,
   functionDetails,
   onSubmit,
   onSchedule,
@@ -55,7 +54,7 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
     
     setArgs(initialArgs);
     setEthValue(functionDetails.payable ? '0.01' : '0'); // Set default ETH if payable
-  }, [functionName, functionDetails, address]);
+  }, [functionSignature, functionDetails, address]);
 
   const handleArgChange = (index: number, value: any) => {
     const newArgs = [...args];
@@ -123,7 +122,7 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
     if (functionDetails.payable) {
       try {
         const value = parseEth(ethValue);
-        if (value < 0) throw new Error('Negative value');
+        if (value < 0n) throw new Error('Negative value');
         if (balance && value > balance.value) {
           toast.error('Insufficient funds for this transaction');
           return;
@@ -140,7 +139,8 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
       return;
     }
     
-    onSubmit(args, ethValue);
+    // Pass the full function signature to onSubmit
+    onSubmit(functionSignature, args, ethValue);
   };
   
   const handleScheduleTransaction = (scheduledTime: number, callback: () => Promise<void>) => {
@@ -171,9 +171,12 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
     const transactionId = uuidv4();
     
     if (onSchedule) {
-      onSchedule(transactionId, scheduledTime, [...args], ethValue);
+      onSchedule(transactionId, scheduledTime, functionSignature, [...args], ethValue);
     }
   };
+
+  // Extract function name from the signature for display purposes
+  const displayName = functionDetails.name;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -247,7 +250,7 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
         className="w-full cyber-button font-mono mt-6"
         disabled={isLoading || (walletRequired && !walletConnected)} 
       >
-        {isLoading ? 'Processing...' : `Execute ${functionName}`}
+        {isLoading ? 'Processing...' : `Execute ${displayName}`}
         {walletRequired && !walletConnected && ' (Connect Wallet)'}
       </Button>
       
@@ -255,7 +258,7 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
       {onSchedule && (
         <TimerScheduler
           onSchedule={handleScheduleTransaction}
-          functionName={functionName}
+          functionName={displayName}
           contractAddress={contractAddress}
           isActive={walletConnected && !isLoading}
         />
