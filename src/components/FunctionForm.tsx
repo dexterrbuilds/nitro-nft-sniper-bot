@@ -40,6 +40,12 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
   
   // Reset form when function changes
   useEffect(() => {
+    console.log("Function details updating:", functionDetails);
+    if (!functionDetails || !functionDetails.inputs) {
+      console.error("Missing function details or inputs");
+      return;
+    }
+    
     // Initialize args with default values based on input types
     const initialArgs = functionDetails.inputs.map((input) => {
       const type = input.type;
@@ -57,6 +63,8 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
   }, [functionSignature, functionDetails, address]);
 
   const handleArgChange = (index: number, value: any) => {
+    if (!functionDetails || !functionDetails.inputs) return;
+    
     const newArgs = [...args];
     
     // Handle type conversion for numeric inputs
@@ -86,6 +94,11 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!functionDetails || !functionDetails.inputs) {
+      toast.error("Function details not loaded properly");
+      return;
+    }
     
     // Validate inputs
     for (let i = 0; i < functionDetails.inputs.length; i++) {
@@ -144,6 +157,8 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
   };
   
   const handleScheduleTransaction = (scheduledTime: number, callback: () => Promise<void>) => {
+    if (!functionDetails || !functionDetails.inputs) return;
+    
     // Validate inputs before scheduling
     for (let i = 0; i < functionDetails.inputs.length; i++) {
       const input = functionDetails.inputs[i];
@@ -174,6 +189,16 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
       onSchedule(transactionId, scheduledTime, functionSignature, [...args], ethValue);
     }
   };
+
+  // Guard against missing function details
+  if (!functionDetails || !functionDetails.inputs) {
+    return (
+      <div className="p-4 border border-red-500 rounded-md bg-red-500/10">
+        <p className="text-red-400 font-medium">Error loading function form</p>
+        <p className="text-sm text-muted-foreground mt-1">Unable to load function details. Please try selecting the function again.</p>
+      </div>
+    );
+  }
 
   // Extract function name from the signature for display purposes
   const displayName = functionDetails.name;
