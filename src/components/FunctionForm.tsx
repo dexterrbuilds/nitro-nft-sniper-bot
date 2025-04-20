@@ -48,9 +48,10 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
     });
   }, [functionName, functionDetails, walletConnected]);
 
+  // Ensure we reset state when functionName changes
   useEffect(() => {
     // Only initialize if functionDetails is properly defined
-    if (functionDetails && functionDetails.inputs) {
+    if (functionDetails && Array.isArray(functionDetails.inputs)) {
       const initialArgs = functionDetails.inputs.map((input) => {
         if (input.type === 'address') return address || ethers.ZeroAddress;
         if (input.type === 'uint256' || input.type.startsWith('uint')) return '1';
@@ -66,7 +67,7 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
   }, [functionName, functionDetails, address]);
 
   // Handle case where functionDetails is undefined or incomplete
-  if (!functionDetails || !functionDetails.inputs) {
+  if (!functionDetails || !Array.isArray(functionDetails.inputs)) {
     return <div className="p-4 text-center text-yellow-500 font-mono">Please select a valid function</div>;
   }
 
@@ -145,7 +146,7 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {functionDetails.inputs.map((input, index) => (
+      {Array.isArray(functionDetails.inputs) && functionDetails.inputs.map((input, index) => (
         <div key={index} className="grid gap-2">
           <Label htmlFor={`input-${index}`} className="text-sm font-mono">
             {input.name || `Parameter #${index + 1}`}{' '}
