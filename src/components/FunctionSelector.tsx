@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -8,7 +7,7 @@ import { Button } from '@/components/ui/button';
 
 interface FunctionSelectorProps {
   functions: { name: string; inputs: any[]; payable: boolean }[];
-  onSelect: (functionName: string) => void;
+  onSelect: (functionSignature: string) => void;
   selectedFunction: string | null;
 }
 
@@ -52,8 +51,15 @@ const FunctionSelector: React.FC<FunctionSelectorProps> = ({
   );
   
   const otherFunctions = filteredFunctions.filter(f => 
-    !mintFunctions.some(mf => mf.name === f.name)
+    !mintFunctions.some(mf => mf.name === f.name && JSON.stringify(mf.inputs) === JSON.stringify(f.inputs))
   );
+
+  // Helper to create unique function signature
+  const getSignature = (func: { name: string; inputs: any[] }) =>
+    `${func.name}(${func.inputs.map(i => i.type).join(',')})`;
+
+  const getLabel = (func: { name: string; inputs: any[] }) =>
+    `${func.name}(${func.inputs.map(i => `${i.name || '_'}: ${i.type}`).join(', ')})`;
 
   return (
     <div className="space-y-3">
@@ -82,24 +88,32 @@ const FunctionSelector: React.FC<FunctionSelectorProps> = ({
             {mintFunctions.length > 0 && (
               <>
                 <div className="px-2 py-1.5 text-xs text-cyber-accent">Mint Functions</div>
-                {mintFunctions.map((func) => (
-                  <SelectItem key={func.name} value={func.name}>
-                    {func.name}
-                    {func.payable && ' (payable)'}
-                  </SelectItem>
-                ))}
+                {mintFunctions.map((func) => {
+                  const sig = getSignature(func);
+                  const label = getLabel(func);
+                  return (
+                    <SelectItem key={sig} value={sig}>
+                      {label}
+                      {func.payable && ' (payable)'}
+                    </SelectItem>
+                  );
+                })}
               </>
             )}
             
             {otherFunctions.length > 0 && (
               <>
                 <div className="px-2 py-1.5 text-xs text-cyber-accent">Other Functions</div>
-                {otherFunctions.map((func) => (
-                  <SelectItem key={func.name} value={func.name}>
-                    {func.name}
-                    {func.payable && ' (payable)'}
-                  </SelectItem>
-                ))}
+                {otherFunctions.map((func) => {
+                  const sig = getSignature(func);
+                  const label = getLabel(func);
+                  return (
+                    <SelectItem key={sig} value={sig}>
+                      {label}
+                      {func.payable && ' (payable)'}
+                    </SelectItem>
+                  );
+                })}
               </>
             )}
           </SelectContent>
