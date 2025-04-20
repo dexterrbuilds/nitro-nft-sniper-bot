@@ -52,7 +52,6 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
   
   // Handle function selection from the selector
   const handleFunctionSelect = (functionSignature: string) => {
-    console.log("Function selected:", functionSignature);
     setSelectedFunction(functionSignature);
     
     // Find the function details based on the signature
@@ -64,16 +63,18 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
       const foundFunction = functions.find(f => 
         f.name === name && 
         f.inputs.length === paramTypesArray.length &&
-        f.inputs.every((input, i) => !paramTypesArray[i] || input.type === paramTypesArray[i])
+        f.inputs.every((input, i) => 
+          !paramTypesArray[i] || input.type === paramTypesArray[i]
+        )
       );
       
       if (foundFunction) {
-        console.log("Found function details:", foundFunction);
         setCurrentFunctionDetails(foundFunction);
       } else {
-        console.log("Could not find matching function details");
         setCurrentFunctionDetails(null);
       }
+    } else {
+      setCurrentFunctionDetails(null);
     }
   };
   
@@ -240,110 +241,105 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
         selectedFunction={selectedFunction}
       />
       
-      {/* Form section */}
-      <div className="space-y-4 pt-2">
-        {currentFunctionDetails ? (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Function parameters */}
-            {currentFunctionDetails.inputs.length > 0 ? (
-              currentFunctionDetails.inputs.map((input, index) => (
-                <div key={index} className="grid gap-2">
-                  <Label htmlFor={`input-${index}`} className="text-sm font-mono">
-                    {input.name || `Parameter #${index+1}`}{' '}
-                    <span className="text-cyber-accent text-xs">{input.type}</span>
-                  </Label>
-                  <Input
-                    id={`input-${index}`}
-                    value={args[index]?.toString() || ''}
-                    onChange={(e) => handleArgChange(index, e.target.value)}
-                    placeholder={`Enter ${input.type}`}
-                    className="cyber-input font-mono"
-                    disabled={isLoading}
-                  />
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-2 text-sm text-muted-foreground">
-                This function has no parameters
-              </div>
-            )}
-            
-            {/* ETH value input for payable functions */}
-            {currentFunctionDetails.payable && (
-              <div className="grid gap-2">
-                <Label htmlFor="eth-value" className="text-sm font-mono">
-                  ETH Value <span className="text-muted-foreground text-xs">(payable)</span>
-                </Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="eth-value"
-                    type="number"
-                    step="0.00001"
-                    min="0"
-                    value={ethValue}
-                    onChange={(e) => setEthValue(e.target.value)}
-                    placeholder="ETH Amount"
-                    className="cyber-input font-mono"
-                    disabled={isLoading}
-                  />
-                  <div className="w-24 p-2 border border-cyber-accent/30 rounded text-right text-sm font-mono bg-cyber-dark/50">
-                    {balance ? formatEth(balance.value) : '0'} ETH
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Gas priority slider */}
-            <div className="grid gap-2">
-              <div className="flex justify-between items-center">
-                <Label htmlFor="gas-priority" className="text-sm font-mono">
-                  Gas Priority
-                </Label>
-                <span className="text-xs font-mono">{gasPriority}%</span>
-              </div>
-              <Slider
-                id="gas-priority"
-                min={1}
-                max={200}
-                step={1}
-                value={[gasPriority]}
-                onValueChange={(value) => setGasPriority(value[0])}
+      {currentFunctionDetails ? (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Form inputs */}
+          {currentFunctionDetails.inputs.map((input, index) => (
+            <div key={index} className="grid gap-2">
+              <Label htmlFor={`input-${index}`} className="text-sm font-mono">
+                {input.name || `Parameter #${index+1}`}{' '}
+                <span className="text-cyber-accent text-xs">{input.type}</span>
+              </Label>
+              <Input
+                id={`input-${index}`}
+                value={args[index]?.toString() || ''}
+                onChange={(e) => handleArgChange(index, e.target.value)}
+                placeholder={`Enter ${input.type}`}
+                className="cyber-input font-mono"
                 disabled={isLoading}
-                className="py-4"
               />
-              <div className="flex justify-between text-xs text-muted-foreground font-mono">
-                <span>Slow</span>
-                <span>Average</span>
-                <span>Fast</span>
+            </div>
+          ))}
+
+          {/* ETH value for payable functions */}
+          {currentFunctionDetails.payable && (
+            <div className="grid gap-2">
+              <Label htmlFor="eth-value" className="text-sm font-mono">
+                ETH Value <span className="text-muted-foreground text-xs">(payable)</span>
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  id="eth-value"
+                  type="number"
+                  step="0.00001"
+                  min="0"
+                  value={ethValue}
+                  onChange={(e) => setEthValue(e.target.value)}
+                  placeholder="ETH Amount"
+                  className="cyber-input font-mono"
+                  disabled={isLoading}
+                />
+                <div className="w-24 p-2 border border-cyber-accent/30 rounded text-right text-sm font-mono bg-cyber-dark/50">
+                  {balance ? formatEth(balance.value) : '0'} ETH
+                </div>
               </div>
             </div>
+          )}
 
-            {/* Execute button */}
-            <Button 
-              type="submit" 
-              className="w-full cyber-button font-mono mt-6"
-              disabled={isLoading || (walletRequired && !walletConnected)} 
-            >
-              {isLoading ? 'Processing...' : `Execute ${currentFunctionDetails.name}`}
-              {walletRequired && !walletConnected && ' (Connect Wallet)'}
-            </Button>
-            
-            {/* Timer scheduler */}
-            {onSchedule && (
-              <TimerScheduler
-                onSchedule={handleScheduleTransaction}
-                functionName={currentFunctionDetails.name}
-                contractAddress={contractAddress}
-                isActive={walletConnected && !isLoading}
-              />
-            )}
-          </form>
-        ) : (
-          <div className="text-center py-8 text-muted-foreground border border-dashed border-cyber-accent/20 rounded-md">
-            Select a function above to continue
+          {/* Gas priority slider */}
+          <div className="grid gap-2">
+            <div className="flex justify-between items-center">
+              <Label htmlFor="gas-priority" className="text-sm font-mono">
+                Gas Priority
+              </Label>
+              <span className="text-xs font-mono">{gasPriority}%</span>
+            </div>
+            <Slider
+              id="gas-priority"
+              min={1}
+              max={200}
+              step={1}
+              value={[gasPriority]}
+              onValueChange={(value) => setGasPriority(value[0])}
+              disabled={isLoading}
+              className="py-4"
+            />
+            <div className="flex justify-between text-xs text-muted-foreground font-mono">
+              <span>Slow</span>
+              <span>Average</span>
+              <span>Fast</span>
+            </div>
           </div>
-        )}
-      </div>
+
+          {/* Execute button */}
+          <Button 
+            type="submit" 
+            className="w-full cyber-button font-mono mt-6"
+            disabled={isLoading || (walletRequired && !walletConnected)} 
+          >
+            {isLoading ? 'Processing...' : `Execute ${currentFunctionDetails.name}`}
+            {walletRequired && !walletConnected && ' (Connect Wallet)'}
+          </Button>
+          
+          {/* Transaction scheduling */}
+          {onSchedule && (
+            <TimerScheduler
+              onSchedule={handleScheduleTransaction}
+              functionName={currentFunctionDetails.name}
+              contractAddress={contractAddress}
+              isActive={walletConnected && !isLoading}
+            />
+          )}
+        </form>
+      ) : (
+        <div className="text-center py-6 border border-dashed border-cyber-accent/20 rounded-md bg-cyber-dark/20">
+          <p className="text-muted-foreground">
+            {selectedFunction 
+              ? "Function details not found. Please select another function." 
+              : "Select a function above to continue"}
+          </p>
+        </div>
+      )}
     </div>
   );
 };
