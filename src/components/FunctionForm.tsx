@@ -38,19 +38,37 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
   const [ethValue, setEthValue] = useState<string>('0');
   const [gasPriority, setGasPriority] = useState<number>(50);
 
+  // Add debugging to trace props received
   useEffect(() => {
-    const initialArgs = functionDetails.inputs.map((input) => {
-      if (input.type === 'address') return address || ethers.ZeroAddress;
-      if (input.type === 'uint256' || input.type.startsWith('uint')) return '1';
-      if (input.type === 'bool') return false;
-      if (input.type === 'string') return '';
-      if (input.type.includes('[]')) return [];
-      return '';
+    console.log("FunctionForm render:", { 
+      functionName, 
+      inputs: functionDetails?.inputs,
+      payable: functionDetails?.payable,
+      walletConnected
     });
+  }, [functionName, functionDetails, walletConnected]);
 
-    setArgs(initialArgs);
-    setEthValue(functionDetails.payable ? '0.01' : '0');
+  useEffect(() => {
+    // Only initialize if functionDetails is properly defined
+    if (functionDetails && functionDetails.inputs) {
+      const initialArgs = functionDetails.inputs.map((input) => {
+        if (input.type === 'address') return address || ethers.ZeroAddress;
+        if (input.type === 'uint256' || input.type.startsWith('uint')) return '1';
+        if (input.type === 'bool') return false;
+        if (input.type === 'string') return '';
+        if (input.type.includes('[]')) return [];
+        return '';
+      });
+
+      setArgs(initialArgs);
+      setEthValue(functionDetails.payable ? '0.01' : '0');
+    }
   }, [functionName, functionDetails, address]);
+
+  // Handle case where functionDetails is undefined or incomplete
+  if (!functionDetails || !functionDetails.inputs) {
+    return <div className="p-4 text-center text-yellow-500 font-mono">Please select a valid function</div>;
+  }
 
   const handleArgChange = (index: number, value: any) => {
     const newArgs = [...args];
@@ -119,8 +137,10 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
     if (!validateInputs()) return;
 
     const transactionId = uuidv4();
-    onSchedule?.(transactionId, scheduledTime, [...args], ethValue, gasPriority);
-    toast.success(`Scheduled ✅ ID: ${transactionId}`);
+    if (onSchedule) {
+      onSchedule(transactionId, scheduledTime, [...args], ethValue, gasPriority);
+      toast.success(`Scheduled ✅ ID: ${transactionId}`);
+    }
   };
 
   return (
