@@ -185,7 +185,7 @@ const Index = () => {
     setSelectedFunctionDetails(details);
   };
 
-  // Handle function execution - updated to use function signature and privateKeySigner
+  // UPDATED handle function execution with proper ETH value handling
   const handleExecuteFunction = useCallback(async (signature: string, args: any[], ethValue: string) => {
     if (!contract || !signature || !selectedFunctionDetails) {
       toast.error('Contract not loaded or function not selected');
@@ -230,10 +230,34 @@ const Index = () => {
         return arg;
       });
       
-      // Create transaction options with value if needed
+      // Create transaction options
       const options: {value?: bigint} = {};
-      if (selectedFunctionDetails.payable && parseFloat(ethValue) > 0) {
-        options.value = parseEth(ethValue);
+      
+      // For payable functions, always include the value parameter
+      // even if it's 0, to ensure consistent behavior
+      if (selectedFunctionDetails.payable) {
+        try {
+          // Use parseEth which properly handles ETH amounts
+          const parsedValue = parseEth(ethValue || '0');
+          options.value = parsedValue;
+          
+          console.log(`Transaction value: ${ethValue} ETH (${parsedValue} wei)`);
+        } catch (error) {
+          console.error('Error parsing ETH value:', error);
+          toast.error('Invalid ETH amount');
+          setIsExecuting(false);
+          
+          // Update transaction status
+          setTransactions(prev => 
+            prev.map(t => 
+              t.id === txId 
+                ? { ...t, status: 'error', error: 'Invalid ETH amount' } 
+                : t
+            )
+          );
+          
+          return;
+        }
       }
       
       // Use private key signer
