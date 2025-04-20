@@ -231,7 +231,7 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
             <Input
               id="eth-value"
               type="number"
-              step="0.001"
+              step="0.000001"
               min="0"
               value={ethValue}
               onChange={(e) => setEthValue(e.target.value)}
