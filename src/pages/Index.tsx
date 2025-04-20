@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
@@ -10,7 +9,13 @@ import FunctionForm from '@/components/FunctionForm';
 import TransactionHistory, { Transaction } from '@/components/TransactionHistory';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { fetchContractABI, getContractFunctions, parseEth, shortenAddress } from '@/lib/contractUtils';
+import { 
+  fetchContractABI, 
+  getContractFunctions, 
+  parseEth, 
+  shortenAddress, 
+  getFullFunctionSignature 
+} from '@/lib/contractUtils';
 import { v4 as uuidv4 } from 'uuid';
 import { getEthersProvider } from '@/lib/web3Config';
 import { Info } from 'lucide-react';
@@ -40,8 +45,11 @@ const Index = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isLoadingContract, setIsLoadingContract] = useState<boolean>(false);
   const [isExecuting, setIsExecuting] = useState<boolean>(false);
+  
+  // The selectedFunction is now the full function signature, not just the name
   const [selectedFunction, setSelectedFunction] = useState<string | null>(null);
   const [selectedFunctionDetails, setSelectedFunctionDetails] = useState<any>(null);
+  
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [contractName, setContractName] = useState<string | null>(null);
   
@@ -96,16 +104,6 @@ const Index = () => {
   useEffect(() => {
     localStorage.setItem('nitro-nft-transactions', JSON.stringify(transactions));
   }, [transactions]);
-  
-  // Update selected function details when a function is selected
-  useEffect(() => {
-    if (selectedFunction && writeFunctions.length > 0) {
-      const funcDetails = writeFunctions.find(f => f.name === selectedFunction);
-      setSelectedFunctionDetails(funcDetails);
-    } else {
-      setSelectedFunctionDetails(null);
-    }
-  }, [selectedFunction, writeFunctions]);
 
   // Handle loading contract data
   const handleLoadContract = useCallback(async (address: string, chain: number) => {
@@ -163,19 +161,6 @@ const Index = () => {
       setReadFunctions(readFunctions);
       setContractName(name);
       
-      // Select a default function if available (preferably a mint function)
-      const mintFunction = writeFunctions.find(f => 
-        f.name.toLowerCase().includes('mint') || 
-        f.name.toLowerCase() === 'buy' || 
-        f.name.toLowerCase() === 'purchase'
-      );
-      
-      if (mintFunction) {
-        setSelectedFunction(mintFunction.name);
-      } else if (writeFunctions.length > 0) {
-        setSelectedFunction(writeFunctions[0].name);
-      }
-      
       // Save to local storage
       localStorage.setItem('nitro-nft-last-contract', JSON.stringify({ address, chainId: chain }));
       
@@ -193,9 +178,16 @@ const Index = () => {
     }
   }, []);
 
-  // Handle function execution - updated to use privateKeySigner if available
-  const handleExecuteFunction = useCallback(async (args: any[], ethValue: string) => {
-    if (!contract || !selectedFunction || !selectedFunctionDetails) {
+  // This function is now called with signature and details
+  const handleSelectFunction = (signature: string, details: any) => {
+    console.log("Selected function:", signature, details);
+    setSelectedFunction(signature);
+    setSelectedFunctionDetails(details);
+  };
+
+  // Handle function execution - updated to use function signature and privateKeySigner
+  const handleExecuteFunction = useCallback(async (signature: string, args: any[], ethValue: string) => {
+    if (!contract || !signature || !selectedFunctionDetails) {
       toast.error('Contract not loaded or function not selected');
       return;
     }
@@ -215,7 +207,7 @@ const Index = () => {
     const newTx: Transaction = {
       id: txId,
       hash: '',
-      functionName: selectedFunction,
+      functionName: selectedFunctionDetails.name,
       contractAddress: contractAddress,
       value: ethValue,
       status: 'pending',
@@ -244,21 +236,18 @@ const Index = () => {
         options.value = parseEth(ethValue);
       }
       
-      // Use private key signer if available
-      let executionContract = contract;
-      if (privateKeySigner) {
-        executionContract = contract.connect(privateKeySigner) as EthersContract;
-      }
+      // Use private key signer
+      const executionContract = contract.connect(privateKeySigner) as EthersContract;
       
       // Log transaction details for debugging
       console.log('Sending transaction:', {
-        function: selectedFunction,
+        function: signature,
         args: processedArgs,
         options
       });
       
-      // Send transaction with properly typed contract
-      const tx = await executionContract[selectedFunction](...processedArgs, options);
+      // Send transaction using the SIGNATURE as the key instead of just the function name
+      const tx = await executionContract[signature](...processedArgs, options);
       
       // Update transaction record with hash
       setTransactions(prev => 
@@ -316,16 +305,17 @@ const Index = () => {
     } finally {
       setIsExecuting(false);
     }
-  }, [contract, selectedFunction, selectedFunctionDetails, privateKeySigner, contractAddress]);
+  }, [contract, selectedFunctionDetails, privateKeySigner, contractAddress]);
 
   // Schedule a transaction for later execution
   const handleScheduleTransaction = useCallback((
     id: string, 
     scheduledTime: number, 
+    signature: string,
     args: any[], 
     value: string
   ) => {
-    if (!contract || !selectedFunction || !selectedFunctionDetails || !privateKeySigner) {
+    if (!contract || !signature || !selectedFunctionDetails || !privateKeySigner) {
       toast.error('Contract not loaded, function not selected, or wallet not connected');
       return;
     }
@@ -333,20 +323,20 @@ const Index = () => {
     // Create a callback function to execute at the scheduled time
     const executionCallback = async () => {
       // This will run when the scheduled time is reached
-      return handleExecuteFunction(args, value);
+      return handleExecuteFunction(signature, args, value);
     };
     
     // Schedule the transaction
     scheduleTransaction({
       id,
-      functionName: selectedFunction,
+      functionName: selectedFunctionDetails.name,
       contractAddress: contractAddress,
       args,
       value,
       scheduledTime,
       executionCallback
     });
-  }, [contract, selectedFunction, selectedFunctionDetails, privateKeySigner, contractAddress, handleExecuteFunction]);
+  }, [contract, selectedFunctionDetails, privateKeySigner, contractAddress, handleExecuteFunction]);
 
   // Handle private key connection - moved this functionality to ConnectWallet.tsx
   const handlePrivateKeyConnect = (address: string) => {
@@ -452,13 +442,13 @@ const Index = () => {
                   <TabsContent value="write" className="space-y-4">
                     <FunctionSelector 
                       functions={writeFunctions}
-                      onSelect={setSelectedFunction}
+                      onSelect={handleSelectFunction}
                       selectedFunction={selectedFunction}
                     />
                     
                     {selectedFunction && selectedFunctionDetails && (
                       <FunctionForm 
-                        functionName={selectedFunction}
+                        functionSignature={selectedFunction}
                         functionDetails={selectedFunctionDetails}
                         onSubmit={handleExecuteFunction}
                         onSchedule={handleScheduleTransaction}
