@@ -120,6 +120,9 @@ const Index = () => {
       
       console.log(`Loading contract ${address} on chain ${chain}`);
       
+      // Update chain ID first, so we use the right RPC for fetching
+      setChainId(chain);
+      
       const abi = await fetchContractABI(address, chain);
       
       if (!abi) {
@@ -154,15 +157,25 @@ const Index = () => {
             name = `${symbol} Token`;
             console.log('Using symbol as fallback:', name);
           } catch (e) {
+            console.log('Could not fetch symbol');
+            
             // Last resort: check if there's a standard ERC721 interface
             try {
               const supportsERC721 = await contractInstance.supportsInterface('0x80ac58cd');
               if (supportsERC721) {
                 name = 'ERC721 NFT Collection';
+              } else {
+                // Generic name based on chain
+                name = chain === 8453 ? 'Base Contract' : 
+                      chain === 16384 ? 'Ape Chain Contract' : 
+                      'Smart Contract';
               }
             } catch (e) {
+              console.log('Could not check ERC721 support');
               // Give up and use generic name
-              name = 'Smart Contract';
+              name = chain === 8453 ? 'Base Contract' : 
+                    chain === 16384 ? 'Ape Chain Contract' : 
+                    'Smart Contract';
             }
           }
         }
@@ -174,7 +187,6 @@ const Index = () => {
       console.log('Read functions:', readFunctions);
       
       setContractAddress(address);
-      setChainId(chain);
       setContractABI(abi);
       setContract(contractInstance);
       setWriteFunctions(writeFunctions);
@@ -303,7 +315,7 @@ const Index = () => {
         value: value,
         maxPriorityFeePerGas: maxPriorityFeePerGas,
         maxFeePerGas: maxFeePerGas,
-        gasLimit: 300000,
+        gasLimit: 500000, // Increased gas limit for better compatibility
       };
       
       // Log transaction details for debugging
@@ -455,6 +467,11 @@ const Index = () => {
               <CardTitle className="text-xl font-mono cyber-glow-text">NFT Sniper Bot</CardTitle>
               <CardDescription>
                 Enter an NFT contract address to interact with its functions
+                {chainId && (
+                  <span className="block mt-1 text-cyber-accent">
+                    Current network: {getNetworkName(chainId)}
+                  </span>
+                )}
               </CardDescription>
             </CardHeader>
             <CardContent>
