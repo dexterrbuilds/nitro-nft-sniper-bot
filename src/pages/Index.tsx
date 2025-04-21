@@ -17,7 +17,7 @@ import {
   getFullFunctionSignature 
 } from '@/lib/contractUtils';
 import { v4 as uuidv4 } from 'uuid';
-import { getEthersProvider, chainOptions } from '@/lib/web3Config';
+import { getEthersProvider } from '@/lib/web3Config';
 import { Info } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import ScheduledTransactions from '@/components/ScheduledTransactions';
@@ -35,7 +35,7 @@ const Index = () => {
 
   // Contract state
   const [contractAddress, setContractAddress] = useState<string>('');
-  const [chainId, setChainId] = useState<number>(16384); // Default to Ape Chain
+  const [chainId, setChainId] = useState<number>(8453); // Default to Base Chain
   const [contractABI, setContractABI] = useState<any[] | null>(null);
   const [contract, setContract] = useState<EthersContract | null>(null);
   const [writeFunctions, setWriteFunctions] = useState<{name: string; inputs: any[]; payable: boolean}[]>([]);
@@ -132,19 +132,39 @@ const Index = () => {
       // Create contract instance with read-only provider
       const contractInstance = new ethers.Contract(address, abi, provider) as EthersContract;
       
-      // Try to fetch contract name
-      let name = 'Unknown Contract';
+      // Try to fetch contract name with multiple fallback methods
+      let name = null;
       try {
+        // Try standard name() function
         name = await contractInstance.name();
-        console.log('Contract name:', name);
+        console.log('Contract name from name():', name);
       } catch (e) {
-        console.log('Could not fetch contract name');
-        // Try alternative method
+        console.log('Could not fetch name via name()');
+        
+        // Try alternative NAME() function (some contracts use uppercase)
         try {
-          // Some contracts use a different case for the name function
-          name = await contractInstance.Name();
+          name = await contractInstance.NAME();
+          console.log('Contract name from NAME():', name);
         } catch (e) {
-          console.log('Could not fetch contract name using alternative method');
+          console.log('Could not fetch name via NAME()');
+          
+          // Try symbol as fallback
+          try {
+            const symbol = await contractInstance.symbol();
+            name = `${symbol} Token`;
+            console.log('Using symbol as fallback:', name);
+          } catch (e) {
+            // Last resort: check if there's a standard ERC721 interface
+            try {
+              const supportsERC721 = await contractInstance.supportsInterface('0x80ac58cd');
+              if (supportsERC721) {
+                name = 'ERC721 NFT Collection';
+              }
+            } catch (e) {
+              // Give up and use generic name
+              name = 'Smart Contract';
+            }
+          }
         }
       }
       
@@ -164,7 +184,7 @@ const Index = () => {
       // Save to local storage
       localStorage.setItem('nitro-nft-last-contract', JSON.stringify({ address, chainId: chain }));
       
-      toast.success(`Contract loaded: ${name || 'Unknown Contract'}`);
+      toast.success(`Contract loaded: ${name || 'Smart Contract'}`);
     } catch (error: any) {
       console.error('Error loading contract:', error);
       toast.error(`Failed to load contract: ${error.message || 'Unknown error'}`);
@@ -229,13 +249,10 @@ const Index = () => {
         return arg;
       });
       
-      // Get a provider specifically for the current chain (defaults to Ape Chain)
-      // Use chainId from the current state, which is set when the contract is loaded
-      const targetChainId = chainId; // This will be either Base (8453) or Ape Chain (16384)
-      const targetProvider = getEthersProvider(targetChainId);
+      // Get a provider for the current chain
+      const targetProvider = getEthersProvider(chainId);
       
-      // Create a new contract instance with the target chain signer
-      // Connect the private key signer to the target chain
+      // Connect private key signer to the target chain
       const targetSigner = privateKeySigner.connect(targetProvider);
       
       // Create a new contract instance with the signer
@@ -272,22 +289,21 @@ const Index = () => {
       // Get current gas price from the network
       const feeData = await targetProvider.getFeeData();
       
-      // Set reasonable gas parameters - using current network conditions but with reasonable limits
+      // Set reasonable gas parameters
       const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas ? 
         feeData.maxPriorityFeePerGas : 
-        ethers.parseUnits("1.5", "gwei"); // Default to 1.5 gwei if can't get from network
+        ethers.parseUnits("1.5", "gwei");
       
       const maxFeePerGas = feeData.maxFeePerGas ?
         feeData.maxFeePerGas :
-        maxPriorityFeePerGas + ethers.parseUnits("2", "gwei"); // Base fee + priority fee
+        maxPriorityFeePerGas + ethers.parseUnits("2", "gwei");
       
       // Prepare transaction options with explicit gas parameters
       const options = {
         value: value,
         maxPriorityFeePerGas: maxPriorityFeePerGas,
         maxFeePerGas: maxFeePerGas,
-        // Set gas limit with a reasonable value or estimate it
-        gasLimit: 300000, // A reasonable default, can be adjusted based on the contract function
+        gasLimit: 300000,
       };
       
       // Log transaction details for debugging
@@ -297,12 +313,12 @@ const Index = () => {
         value: ethers.formatEther(value) + ' ETH',
         maxPriorityFeePerGas: ethers.formatUnits(maxPriorityFeePerGas, "gwei") + ' gwei',
         maxFeePerGas: ethers.formatUnits(maxFeePerGas, "gwei") + ' gwei',
-        chainId: targetChainId,
-        network: targetChainId === 8453 ? 'Base' : 'Ape Chain'
+        chainId: chainId,
+        network: chainId === 8453 ? 'Base' : chainId === 16384 ? 'Ape Chain' : 'Custom Network'
       });
       
       // Confirm with user if the value is high
-      if (value > parseEth("1.0")) { // Confirm if sending more than 1 ETH
+      if (value > parseEth("1.0")) {
         if (!window.confirm(`You are about to send ${ethers.formatEther(value)} ETH. Are you sure?`)) {
           toast.info('Transaction cancelled by user');
           setIsExecuting(false);
@@ -348,7 +364,11 @@ const Index = () => {
           )
         );
         
-        toast.success(`Transaction confirmed on ${targetChainId === 8453 ? 'Base' : 'Ape Chain'}!`);
+        const networkName = chainId === 8453 ? 'Base' : 
+                           chainId === 16384 ? 'Ape Chain' : 
+                           'Network';
+        
+        toast.success(`Transaction confirmed on ${networkName}!`);
       }).catch((error: any) => {
         console.error('Transaction confirmation error:', error);
         
@@ -417,6 +437,15 @@ const Index = () => {
     toast.success(`Connected with address: ${shortenAddress(address)}`);
   };
 
+  // Get network name for display
+  const getNetworkName = (id: number) => {
+    switch (id) {
+      case 8453: return 'Base Chain';
+      case 16384: return 'Ape Chain';
+      default: return 'Network ' + id;
+    }
+  };
+
   return (
     <Layout>
       <div className="grid md:grid-cols-7 gap-6">
@@ -425,8 +454,7 @@ const Index = () => {
             <CardHeader>
               <CardTitle className="text-xl font-mono cyber-glow-text">NFT Sniper Bot</CardTitle>
               <CardDescription>
-                Enter an NFT contract address to interact with its functions.
-                <span className="block mt-1 text-cyber-accent">Using {chainId === 8453 ? 'Base' : 'Ape Chain'}</span>
+                Enter an NFT contract address to interact with its functions
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -466,21 +494,20 @@ const Index = () => {
                 {contractAddress ? (
                   <div className="flex items-center gap-2">
                     <span>
-                      {contractName || 'Contract'}{' '}
+                      {contractName || 'Smart Contract'}{' '}
                       <span className="text-cyber-accent">
                         {contractAddress.slice(0, 6)}...{contractAddress.slice(-4)}
                       </span>
                     </span>
-                    {contractName && (
+                    {contractAddress && (
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger>
                             <Info size={16} className="text-muted-foreground" />
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>Contract Name: {contractName}</p>
-                            <p>Address: {contractAddress}</p>
-                            <p>Network: {chainId === 8453 ? 'Base Chain' : 'Ape Chain'}</p>
+                            <p>Contract Address: {contractAddress}</p>
+                            <p>Network: {getNetworkName(chainId)}</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
