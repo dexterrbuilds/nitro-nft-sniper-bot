@@ -184,9 +184,6 @@ const Index = () => {
     setSelectedFunction(signature);
     setSelectedFunctionDetails(details);
   };
-
-  // UPDATED handle function execution with proper ETH value handling
-  // UPDATED handle function execution with proper ETH value handling
 const handleExecuteFunction = useCallback(async (signature: string, args: any[], ethValue: string) => {
   if (!contract || !signature || !selectedFunctionDetails) {
     toast.error('Contract not loaded or function not selected');
@@ -231,17 +228,25 @@ const handleExecuteFunction = useCallback(async (signature: string, args: any[],
       return arg;
     });
     
-    // Create transaction options
-    const options: {value?: bigint} = {};
+    // Get a provider specifically for Base Mainnet
+    const baseProvider = getEthersProvider(8453); // 8453 is Base Mainnet chain ID
     
-    // For payable functions, include the value parameter
-    if (selectedFunctionDetails.payable) {
+    // Create a wallet with the private key and the Base provider
+    const wallet = new ethers.Wallet(await privateKeySigner.getPrivateKey(), baseProvider);
+    
+    // Create a new contract instance with the wallet
+    const executionContract = new ethers.Contract(
+      contractAddress,
+      contractABI,
+      wallet
+    ) as EthersContract;
+    
+    // Parse ETH value properly
+    let value = BigInt(0);
+    if (selectedFunctionDetails.payable && ethValue) {
       try {
-        // Use parseEth which properly handles ETH amounts
-        const parsedValue = parseEth(ethValue || '0');
-        options.value = parsedValue;
-        
-        console.log(`Transaction value: ${ethValue} ETH (${parsedValue} wei)`);
+        value = parseEth(ethValue);
+        console.log(`Transaction value: ${ethValue} ETH (${value} wei)`);
       } catch (error) {
         console.error('Error parsing ETH value:', error);
         toast.error('Invalid ETH amount');
@@ -260,20 +265,55 @@ const handleExecuteFunction = useCallback(async (signature: string, args: any[],
       }
     }
     
-    // Create a new contract instance with the signer
-    // This follows the Etherscan example more closely
-    const executionContract = new ethers.Contract(
-      contractAddress,
-      contractABI,
-      privateKeySigner
-    ) as EthersContract;
+    // Get current gas price from the network
+    const feeData = await baseProvider.getFeeData();
+    
+    // Set reasonable gas parameters - using current network conditions but with reasonable limits
+    const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas ? 
+      feeData.maxPriorityFeePerGas : 
+      ethers.parseUnits("1.5", "gwei"); // Default to 1.5 gwei if can't get from network
+    
+    const maxFeePerGas = feeData.maxFeePerGas ?
+      feeData.maxFeePerGas :
+      maxPriorityFeePerGas + ethers.parseUnits("2", "gwei"); // Base fee + priority fee
+    
+    // Prepare transaction options with explicit gas parameters
+    const options = {
+      value: value,
+      maxPriorityFeePerGas: maxPriorityFeePerGas,
+      maxFeePerGas: maxFeePerGas,
+      // Set gas limit with a reasonable value or estimate it
+      gasLimit: 300000, // A reasonable default, can be adjusted based on the contract function
+    };
     
     // Log transaction details for debugging
     console.log('Sending transaction:', {
       function: signature,
       args: processedArgs,
-      options
+      value: ethers.formatEther(value) + ' ETH',
+      maxPriorityFeePerGas: ethers.formatUnits(maxPriorityFeePerGas, "gwei") + ' gwei',
+      maxFeePerGas: ethers.formatUnits(maxFeePerGas, "gwei") + ' gwei',
+      chainId: 8453,
     });
+    
+    // Confirm with user if the value is high
+    if (value > parseEth("1.0")) { // Confirm if sending more than 1 ETH
+      if (!window.confirm(`You are about to send ${ethers.formatEther(value)} ETH. Are you sure?`)) {
+        toast.info('Transaction cancelled by user');
+        setIsExecuting(false);
+        
+        // Update transaction status
+        setTransactions(prev => 
+          prev.map(t => 
+            t.id === txId 
+              ? { ...t, status: 'cancelled' } 
+              : t
+          )
+        );
+        
+        return;
+      }
+    }
     
     // Send transaction using the SIGNATURE as the key instead of just the function name
     const tx = await executionContract[signature](...processedArgs, options);
@@ -313,7 +353,7 @@ const handleExecuteFunction = useCallback(async (signature: string, args: any[],
           t.id === txId 
             ? { ...t, status: 'error' } 
             : t
-        )
+          )
       );
       
       toast.error(`Transaction failed during confirmation`);
