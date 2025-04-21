@@ -1,6 +1,6 @@
-
 import { ethers } from 'ethers';
 import { toast } from 'sonner';
+import { getBlockExplorerApiUrl } from './web3Config';
 
 function getProvider(chainId: number): ethers.Provider {
   switch (chainId) {
@@ -24,6 +24,8 @@ function getProvider(chainId: number): ethers.Provider {
       return new ethers.JsonRpcProvider('https://mainnet.base.org');
     case 84531: // Base Goerli
       return new ethers.JsonRpcProvider('https://goerli.base.org');
+    case 16384: // Ape Chain - Added support for Ape Chain
+      return new ethers.JsonRpcProvider('https://rpc.ankr.com/apecoin');
     default:
       throw new Error(`Unsupported chain ID: ${chainId}`);
   }
@@ -47,46 +49,10 @@ export const fetchContractABI = async (
     }
     
     // Contract exists, try to get verified ABI from block explorer
-    let apiUrl;
-    let apiKey = '8UQEY8RYB6GM76IMIGNZTU29K3KA5UNN8P'; // BaseScan API key
+    const apiUrl = getBlockExplorerApiUrl(chainId, address);
     
-    // Determine which explorer API to use based on chainId
-    switch (chainId) {
-      case 1: // Ethereum Mainnet
-        apiUrl = `https://api.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=NPXSNH347JW6C5XBKWG89DJD6CK2CSCVNT`;
-        break;
-      case 5: // Goerli
-        apiUrl = `https://api-goerli.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=NPXSNH347JW6C5XBKWG89DJD6CK2CSCVNT`;
-        break;
-      case 11155111: // Sepolia
-        apiUrl = `https://api-sepolia.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=NPXSNH347JW6C5XBKWG89DJD6CK2CSCVNT`;
-        break;
-      case 137: // Polygon
-        apiUrl = `https://api.polygonscan.com/api?module=contract&action=getabi&address=${address}&apikey=VPW7RMZTKZN8MGUCIFEKG5PCGJVXYGBMGJ`;
-        break;
-      case 80001: // Mumbai
-        apiUrl = `https://api-testnet.polygonscan.com/api?module=contract&action=getabi&address=${address}&apikey=VPW7RMZTKZN8MGUCIFEKG5PCGJVXYGBMGJ`;
-        break;
-      case 42161: // Arbitrum
-        apiUrl = `https://api.arbiscan.io/api?module=contract&action=getabi&address=${address}&apikey=6IZXNSA7G3DYP1CHKX78YVS6T62CHMWMJ8`;
-        break;
-      case 10: // Optimism
-        apiUrl = `https://api-optimistic.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=R6UEUF6GBJ87SAYWPCQ3C4JFBM6A2CPFN1`;
-        break;
-      case 56: // BSC
-        apiUrl = `https://api.bscscan.com/api?module=contract&action=getabi&address=${address}&apikey=YKPWT5K3G5AMK8XV77CUWTNCGF1IXJ4P39`;
-        break;
-      case 8453: // Base
-      case 84531: // Base Goerli
-        apiUrl = `https://api${chainId === 84531 ? '-goerli' : ''}.basescan.org/api?module=contract&action=getabi&address=${address}&apikey=${apiKey}`;
-        break;
-      default:
-        console.log('No block explorer API available for this chain, using smart detection');
-        return getSmartDetectedABI(bytecode);
-    }
-
     if (!apiUrl) {
-      console.log('No block explorer API available for this chain, using fallback ABI');
+      console.log('No block explorer API available for this chain, using smart detection');
       return getSmartDetectedABI(bytecode);
     }
 
