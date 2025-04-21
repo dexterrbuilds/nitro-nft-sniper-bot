@@ -21,6 +21,7 @@ const base = {
   },
 };
 
+// Updated Ape Chain configuration with improved RPC URLs
 const apeChain = {
   id: 16384,
   name: 'ApeCoin',
@@ -31,7 +32,7 @@ const apeChain = {
     symbol: 'APE',
   },
   rpcUrls: {
-    public: { http: ['https://rpc.ankr.com/apecoin'] },
+    public: { http: ['https://rpc.ankr.com/apecoin', 'https://ape-chain.rpc.thirdweb.com'] },
     default: { http: ['https://rpc.ankr.com/apecoin'] },
   },
 };
@@ -94,6 +95,17 @@ const abstractChain = {
     public: { http: ['https://abstract-mainnet.g.alchemy.com/v2/HH7IEuZ2i6-7pXDbtM3LHG_0zOHao5LR'] },
     default: { http: ['https://abstract-mainnet.g.alchemy.com/v2/HH7IEuZ2i6-7pXDbtM3LHG_0zOHao5LR'] },
   },
+};
+
+// API Keys for block explorers
+const API_KEYS = {
+  ETHERSCAN: 'NPXSNH347JW6C5XBKWG89DJD6CK2CSCVNT',
+  POLYGONSCAN: 'VPW7RMZTKZN8MGUCIFEKG5PCGJVXYGBMGJ',
+  ARBISCAN: '6IZXNSA7G3DYP1CHKX78YVS6T62CHMWMJ8',
+  OPTIMISTIC_ETHERSCAN: 'R6UEUF6GBJ87SAYWPCQ3C4JFBM6A2CPFN1',
+  BSCSCAN: 'YKPWT5K3G5AMK8XV77CUWTNCGF1IXJ4P39',
+  BASESCAN: '8UQEY8RYB6GM76IMIGNZTU29K3KA5UNN8P',
+  APESCAN: 'AUIZ36FWI8V2QVIKBZ4NWJZQ4D4JQ5PRX7'
 };
 
 const getRpcUrl = (chainId: number) => {
@@ -191,7 +203,7 @@ const connectWithWalletConnect = async (): Promise<ethers.Signer | null> => {
         56: getRpcUrl(56),
         8453: getRpcUrl(8453),
         84531: getRpcUrl(84531),
-        16384: getRpcUrl(16384),
+        16384: getRpcUrl(16384), // Ape Chain
         80085: getRpcUrl(80085),
         1881: getRpcUrl(1881),
         1718: getRpcUrl(1718),
@@ -227,7 +239,8 @@ export const connectWithPrivateKey = async (privateKey: string): Promise<ethers.
       throw new Error('Invalid private key format');
     }
     
-    const chainId = 1;
+    // Default to Ape Chain for private key connection
+    const chainId = 16384; // Ape Chain
     const rpcUrl = getRpcUrl(chainId);
     
     const provider = new ethers.JsonRpcProvider(rpcUrl);
@@ -247,10 +260,41 @@ export const getEthersProvider = (chainId: number): ethers.JsonRpcProvider => {
   return new ethers.JsonRpcProvider(rpcUrl);
 };
 
+// Updated chain options to prioritize Ape Chain
 export const chainOptions = [
+  { id: apeChain.id, name: 'Ape Chain' },
   { id: base.id, name: 'Base Chain' },
   { id: beraChain.id, name: 'Berachain' },
   { id: monadChain.id, name: 'Monad Testnet' },
-  { id: apeChain.id, name: 'Ape Chain' },
   { id: abstractChain.id, name: 'Abstract' },
 ];
+
+// Get block explorer API URL based on chain ID
+export const getBlockExplorerApiUrl = (chainId: number, address: string): string | null => {
+  switch (chainId) {
+    case 1: // Ethereum Mainnet
+      return `https://api.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=${API_KEYS.ETHERSCAN}`;
+    case 5: // Goerli
+      return `https://api-goerli.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=${API_KEYS.ETHERSCAN}`;
+    case 11155111: // Sepolia
+      return `https://api-sepolia.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=${API_KEYS.ETHERSCAN}`;
+    case 137: // Polygon
+      return `https://api.polygonscan.com/api?module=contract&action=getabi&address=${address}&apikey=${API_KEYS.POLYGONSCAN}`;
+    case 80001: // Mumbai
+      return `https://api-testnet.polygonscan.com/api?module=contract&action=getabi&address=${address}&apikey=${API_KEYS.POLYGONSCAN}`;
+    case 42161: // Arbitrum
+      return `https://api.arbiscan.io/api?module=contract&action=getabi&address=${address}&apikey=${API_KEYS.ARBISCAN}`;
+    case 10: // Optimism
+      return `https://api-optimistic.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=${API_KEYS.OPTIMISTIC_ETHERSCAN}`;
+    case 56: // BSC
+      return `https://api.bscscan.com/api?module=contract&action=getabi&address=${address}&apikey=${API_KEYS.BSCSCAN}`;
+    case 8453: // Base
+      return `https://api.basescan.org/api?module=contract&action=getabi&address=${address}&apikey=${API_KEYS.BASESCAN}`;
+    case 84531: // Base Goerli
+      return `https://api-goerli.basescan.org/api?module=contract&action=getabi&address=${address}&apikey=${API_KEYS.BASESCAN}`;
+    case 16384: // Ape Chain
+      return `https://api.apescan.io/api?module=contract&action=getabi&address=${address}&apikey=${API_KEYS.APESCAN}`;
+    default:
+      return null;
+  }
+};
