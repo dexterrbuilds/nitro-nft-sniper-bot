@@ -239,8 +239,8 @@ export const connectWithPrivateKey = async (privateKey: string): Promise<ethers.
       throw new Error('Invalid private key format');
     }
     
-    // Default to Ape Chain for private key connection
-    const chainId = 16384; // Ape Chain
+    // Default to Base Chain for private key connection
+    const chainId = 8453; // Base Chain
     const rpcUrl = getRpcUrl(chainId);
     
     const provider = new ethers.JsonRpcProvider(rpcUrl);
@@ -260,10 +260,10 @@ export const getEthersProvider = (chainId: number): ethers.JsonRpcProvider => {
   return new ethers.JsonRpcProvider(rpcUrl);
 };
 
-// Updated chain options to prioritize Ape Chain
+// Updated chain options to prioritize Base Chain
 export const chainOptions = [
-  { id: apeChain.id, name: 'Ape Chain' },
   { id: base.id, name: 'Base Chain' },
+  { id: apeChain.id, name: 'Ape Chain' },
   { id: beraChain.id, name: 'Berachain' },
   { id: monadChain.id, name: 'Monad Testnet' },
   { id: abstractChain.id, name: 'Abstract' },
