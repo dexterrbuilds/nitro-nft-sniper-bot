@@ -231,14 +231,16 @@ const handleExecuteFunction = useCallback(async (signature: string, args: any[],
     // Get a provider specifically for Base Mainnet
     const baseProvider = getEthersProvider(8453); // 8453 is Base Mainnet chain ID
     
-    // Create a wallet with the private key and the Base provider
-    const wallet = new ethers.Wallet(await privateKeySigner.getPrivateKey(), baseProvider);
+    // Create a contract instance specifically for Base Mainnet with our signer
+    // We need to ensure the signer is connected to the right network
+    // privateKeySigner is already a signer, so we can connect it to our provider
+    const baseSigner = privateKeySigner.connect(baseProvider);
     
-    // Create a new contract instance with the wallet
+    // Create a new contract instance with the signer
     const executionContract = new ethers.Contract(
       contractAddress,
       contractABI,
-      wallet
+      baseSigner
     ) as EthersContract;
     
     // Parse ETH value properly
@@ -375,7 +377,6 @@ const handleExecuteFunction = useCallback(async (signature: string, args: any[],
     setIsExecuting(false);
   }
 }, [contract, contractAddress, contractABI, selectedFunctionDetails, privateKeySigner]);
-
 
   // Schedule a transaction for later execution
   const handleScheduleTransaction = useCallback((
