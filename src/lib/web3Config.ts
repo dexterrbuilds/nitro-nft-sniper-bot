@@ -251,6 +251,6 @@ export const chainOptions = [
   { id: base.id, name: 'Base Chain' },
   { id: beraChain.id, name: 'Berachain' },
   { id: monadChain.id, name: 'Monad Testnet' },
-  { id: apeChain.id, name: 'ApeCoin' },
+  { id: apeChain.id, name: 'Ape Chain' },
   { id: abstractChain.id, name: 'Abstract' },
 ];
