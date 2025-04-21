@@ -23,8 +23,8 @@ function getProvider(chainId: number): ethers.Provider {
       return new ethers.JsonRpcProvider('https://mainnet.base.org');
     case 84531: // Base Goerli
       return new ethers.JsonRpcProvider('https://goerli.base.org');
-    case 16384: // Ape Chain
-      return new ethers.JsonRpcProvider('https://rpc.ankr.com/apecoin');
+    case 16384: // Ape Chain - Updated to the correct RPC URL
+      return new ethers.JsonRpcProvider('https://apechain.drpc.org');
     default:
       throw new Error(`Unsupported chain ID: ${chainId}`);
   }
@@ -39,7 +39,23 @@ export const fetchContractABI = async (
   try {
     // First, try direct RPC method call to get the bytecode
     const provider = getProvider(chainId);
-    const bytecode = await provider.getCode(address);
+    
+    let bytecode;
+    try {
+      bytecode = await provider.getCode(address);
+      
+      // For Ape Chain, sometimes need longer timeout
+      if (bytecode === '0x' && chainId === 16384) {
+        // Wait a bit longer and try again for Ape Chain
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        bytecode = await provider.getCode(address);
+      }
+    } catch (error) {
+      console.error("Error getting code from provider:", error);
+      toast.error("Provider error - trying fallback detection");
+      // If provider fails, assume contract exists and use fallback detection
+      bytecode = '0x1234'; // Dummy non-empty bytecode
+    }
     
     if (bytecode === '0x' || bytecode === '') {
       console.log('Contract does not exist or is not deployed at this address');
@@ -100,7 +116,7 @@ export const fetchContractABI = async (
     try {
       // Add a timeout to the fetch request
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
       
       const response = await fetch(apiUrl, { signal: controller.signal });
       clearTimeout(timeoutId);
