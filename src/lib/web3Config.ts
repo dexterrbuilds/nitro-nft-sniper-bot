@@ -21,7 +21,7 @@ const base = {
   },
 };
 
-// Updated Ape Chain configuration with improved RPC URLs
+// Updated Ape Chain configuration with correct RPC URL
 const apeChain = {
   id: 16384,
   name: 'ApeCoin',
@@ -32,8 +32,8 @@ const apeChain = {
     symbol: 'APE',
   },
   rpcUrls: {
-    public: { http: ['https://rpc.ankr.com/apecoin', 'https://ape-chain.rpc.thirdweb.com'] },
-    default: { http: ['https://rpc.ankr.com/apecoin'] },
+    public: { http: ['https://apechain.drpc.org'] },
+    default: { http: ['https://apechain.drpc.org'] },
   },
 };
 
@@ -131,7 +131,7 @@ const getRpcUrl = (chainId: number) => {
     case baseGoerli.id:
       return "https://goerli.base.org";
     case apeChain.id:
-      return "https://rpc.ankr.com/apecoin";
+      return "https://apechain.drpc.org"; // Updated to the correct RPC URL
     case beraChain.id:
       return "https://berachain-mainnet.g.alchemy.com/v2/HH7IEuZ2i6-7pXDbtM3LHG_0zOHao5LR";
     case monadChain.id:
