@@ -1,6 +1,5 @@
 import { ethers } from 'ethers';
 import { toast } from 'sonner';
-import { getBlockExplorerApiUrl } from './web3Config';
 
 function getProvider(chainId: number): ethers.Provider {
   switch (chainId) {
@@ -24,7 +23,7 @@ function getProvider(chainId: number): ethers.Provider {
       return new ethers.JsonRpcProvider('https://mainnet.base.org');
     case 84531: // Base Goerli
       return new ethers.JsonRpcProvider('https://goerli.base.org');
-    case 16384: // Ape Chain - Added support for Ape Chain
+    case 16384: // Ape Chain
       return new ethers.JsonRpcProvider('https://rpc.ankr.com/apecoin');
     default:
       throw new Error(`Unsupported chain ID: ${chainId}`);
@@ -49,33 +48,86 @@ export const fetchContractABI = async (
     }
     
     // Contract exists, try to get verified ABI from block explorer
-    const apiUrl = getBlockExplorerApiUrl(chainId, address);
+    let apiUrl;
     
+    // Determine which explorer API to use based on chainId
+    switch (chainId) {
+      case 1: // Ethereum Mainnet
+        apiUrl = `https://api.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=NPXSNH347JW6C5XBKWG89DJD6CK2CSCVNT`;
+        break;
+      case 5: // Goerli
+        apiUrl = `https://api-goerli.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=NPXSNH347JW6C5XBKWG89DJD6CK2CSCVNT`;
+        break;
+      case 11155111: // Sepolia
+        apiUrl = `https://api-sepolia.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=NPXSNH347JW6C5XBKWG89DJD6CK2CSCVNT`;
+        break;
+      case 137: // Polygon
+        apiUrl = `https://api.polygonscan.com/api?module=contract&action=getabi&address=${address}&apikey=VPW7RMZTKZN8MGUCIFEKG5PCGJVXYGBMGJ`;
+        break;
+      case 80001: // Mumbai
+        apiUrl = `https://api-testnet.polygonscan.com/api?module=contract&action=getabi&address=${address}&apikey=VPW7RMZTKZN8MGUCIFEKG5PCGJVXYGBMGJ`;
+        break;
+      case 42161: // Arbitrum
+        apiUrl = `https://api.arbiscan.io/api?module=contract&action=getabi&address=${address}&apikey=6IZXNSA7G3DYP1CHKX78YVS6T62CHMWMJ8`;
+        break;
+      case 10: // Optimism
+        apiUrl = `https://api-optimistic.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=R6UEUF6GBJ87SAYWPCQ3C4JFBM6A2CPFN1`;
+        break;
+      case 56: // BSC
+        apiUrl = `https://api.bscscan.com/api?module=contract&action=getabi&address=${address}&apikey=YKPWT5K3G5AMK8XV77CUWTNCGF1IXJ4P39`;
+        break;
+      case 8453: // Base
+        apiUrl = `https://api.basescan.org/api?module=contract&action=getabi&address=${address}&apikey=8UQEY8RYB6GM76IMIGNZTU29K3KA5UNN8P`;
+        break;
+      case 84531: // Base Goerli
+        apiUrl = `https://api-goerli.basescan.org/api?module=contract&action=getabi&address=${address}&apikey=8UQEY8RYB6GM76IMIGNZTU29K3KA5UNN8P`;
+        break;
+      case 16384: // Ape Chain
+        apiUrl = `https://api.apescan.io/api?module=contract&action=getabi&address=${address}&apikey=AUIZ36FWI8V2QVIKBZ4NWJZQ4D4JQ5PRX7`;
+        break;
+      default:
+        console.log('No block explorer API available for this chain, using smart detection');
+        return await getSmartDetectedABI(bytecode);
+    }
+
     if (!apiUrl) {
-      console.log('No block explorer API available for this chain, using smart detection');
-      return getSmartDetectedABI(bytecode);
+      console.log('No block explorer API available for this chain, using fallback ABI');
+      return await getSmartDetectedABI(bytecode);
     }
 
     console.log('Fetching ABI from explorer API:', apiUrl);
-    const response = await fetch(apiUrl);
-    const data = await response.json();
-    console.log('Explorer API response:', data);
+    
+    try {
+      // Add a timeout to the fetch request
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      
+      const response = await fetch(apiUrl, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      
+      const data = await response.json();
+      console.log('Explorer API response:', data);
 
-    if (data.status === '1' && data.result) {
-      try {
-        const abi = JSON.parse(data.result);
-        console.log('Successfully fetched verified ABI:', abi);
-        return abi;
-      } catch (parseError) {
-        console.error('Error parsing ABI:', parseError);
-        return getSmartDetectedABI(bytecode);
+      if (data.status === '1' && data.result) {
+        try {
+          const abi = JSON.parse(data.result);
+          console.log('Successfully fetched verified ABI:', abi);
+          return abi;
+        } catch (parseError) {
+          console.error('Error parsing ABI:', parseError);
+          return await getSmartDetectedABI(bytecode);
+        }
+      } else {
+        console.log('Contract not verified or API error, using smart detection');
+        if (data.message && data.message.includes('API Key')) {
+          toast.warning("Block explorer API key issue - using fallback ABI detection");
+        }
+        return await getSmartDetectedABI(bytecode);
       }
-    } else {
-      console.log('Contract not verified or API error, using smart detection');
-      if (data.message && data.message.includes('API Key')) {
-        toast.warning("Block explorer API key issue - using fallback ABI detection");
-      }
-      return getSmartDetectedABI(bytecode);
+    } catch (fetchError) {
+      console.error('Error fetching from block explorer API:', fetchError);
+      toast.warning('Could not connect to block explorer, using smart detection');
+      return await getSmartDetectedABI(bytecode);
     }
   } catch (error) {
     console.error("Error fetching contract ABI:", error);
@@ -84,7 +136,7 @@ export const fetchContractABI = async (
   }
 };
 
-function getSmartDetectedABI(bytecode: string) {
+async function getSmartDetectedABI(bytecode: string) {
   console.log('Using smart ABI detection...');
   
   // Check for ERC721 signature in bytecode
