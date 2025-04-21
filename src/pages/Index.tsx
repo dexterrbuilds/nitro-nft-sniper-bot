@@ -186,150 +186,156 @@ const Index = () => {
   };
 
   // UPDATED handle function execution with proper ETH value handling
-  const handleExecuteFunction = useCallback(async (signature: string, args: any[], ethValue: string) => {
-    if (!contract || !signature || !selectedFunctionDetails) {
-      toast.error('Contract not loaded or function not selected');
-      return;
-    }
-    
-    // Check if we have a private key signer
-    const hasValidSigner = privateKeySigner !== null;
-    
-    if (!hasValidSigner) {
-      toast.error('Please connect using a private key to execute transactions');
-      return;
-    }
-    
-    setIsExecuting(true);
-    
-    // Create a transaction record
-    const txId = uuidv4();
-    const newTx: Transaction = {
-      id: txId,
-      hash: '',
-      functionName: selectedFunctionDetails.name,
-      contractAddress: contractAddress,
-      value: ethValue,
-      status: 'pending',
-      timestamp: Date.now(),
-    };
-    
-    // Add to transaction history
-    setTransactions(prev => [newTx, ...prev]);
-    
-    try {
-      // Convert parameters to the right types
-      const processedArgs = args.map((arg, index) => {
-        const paramType = selectedFunctionDetails.inputs[index].type;
-        
-        // Specific type conversions
-        if (paramType.startsWith('uint') || paramType.startsWith('int')) {
-          return BigInt(arg);
-        }
-        
-        return arg;
-      });
+  // UPDATED handle function execution with proper ETH value handling
+const handleExecuteFunction = useCallback(async (signature: string, args: any[], ethValue: string) => {
+  if (!contract || !signature || !selectedFunctionDetails) {
+    toast.error('Contract not loaded or function not selected');
+    return;
+  }
+  
+  // Check if we have a private key signer
+  const hasValidSigner = privateKeySigner !== null;
+  
+  if (!hasValidSigner) {
+    toast.error('Please connect using a private key to execute transactions');
+    return;
+  }
+  
+  setIsExecuting(true);
+  
+  // Create a transaction record
+  const txId = uuidv4();
+  const newTx: Transaction = {
+    id: txId,
+    hash: '',
+    functionName: selectedFunctionDetails.name,
+    contractAddress: contractAddress,
+    value: ethValue,
+    status: 'pending',
+    timestamp: Date.now(),
+  };
+  
+  // Add to transaction history
+  setTransactions(prev => [newTx, ...prev]);
+  
+  try {
+    // Convert parameters to the right types
+    const processedArgs = args.map((arg, index) => {
+      const paramType = selectedFunctionDetails.inputs[index].type;
       
-      // Create transaction options
-      const options: {value?: bigint} = {};
-      
-      // For payable functions, always include the value parameter
-      // even if it's 0, to ensure consistent behavior
-      if (selectedFunctionDetails.payable) {
-        try {
-          // Use parseEth which properly handles ETH amounts
-          const parsedValue = parseEth(ethValue || '0');
-          options.value = parsedValue;
-          
-          console.log(`Transaction value: ${ethValue} ETH (${parsedValue} wei)`);
-        } catch (error) {
-          console.error('Error parsing ETH value:', error);
-          toast.error('Invalid ETH amount');
-          setIsExecuting(false);
-          
-          // Update transaction status
-          setTransactions(prev => 
-            prev.map(t => 
-              t.id === txId 
-                ? { ...t, status: 'error', error: 'Invalid ETH amount' } 
-                : t
-            )
-          );
-          
-          return;
-        }
+      // Specific type conversions
+      if (paramType.startsWith('uint') || paramType.startsWith('int')) {
+        return BigInt(arg);
       }
       
-      // Use private key signer
-      const executionContract = contract.connect(privateKeySigner) as EthersContract;
-      
-      // Log transaction details for debugging
-      console.log('Sending transaction:', {
-        function: signature,
-        args: processedArgs,
-        options
-      });
-      
-      // Send transaction using the SIGNATURE as the key instead of just the function name
-      const tx = await executionContract[signature](...processedArgs, options);
-      
-      // Update transaction record with hash
+      return arg;
+    });
+    
+    // Create transaction options
+    const options: {value?: bigint} = {};
+    
+    // For payable functions, include the value parameter
+    if (selectedFunctionDetails.payable) {
+      try {
+        // Use parseEth which properly handles ETH amounts
+        const parsedValue = parseEth(ethValue || '0');
+        options.value = parsedValue;
+        
+        console.log(`Transaction value: ${ethValue} ETH (${parsedValue} wei)`);
+      } catch (error) {
+        console.error('Error parsing ETH value:', error);
+        toast.error('Invalid ETH amount');
+        setIsExecuting(false);
+        
+        // Update transaction status
+        setTransactions(prev => 
+          prev.map(t => 
+            t.id === txId 
+              ? { ...t, status: 'error', error: 'Invalid ETH amount' } 
+              : t
+          )
+        );
+        
+        return;
+      }
+    }
+    
+    // Create a new contract instance with the signer
+    // This follows the Etherscan example more closely
+    const executionContract = new ethers.Contract(
+      contractAddress,
+      contractABI,
+      privateKeySigner
+    ) as EthersContract;
+    
+    // Log transaction details for debugging
+    console.log('Sending transaction:', {
+      function: signature,
+      args: processedArgs,
+      options
+    });
+    
+    // Send transaction using the SIGNATURE as the key instead of just the function name
+    const tx = await executionContract[signature](...processedArgs, options);
+    
+    // Update transaction record with hash
+    setTransactions(prev => 
+      prev.map(t => 
+        t.id === txId 
+          ? { ...t, hash: tx.hash, status: 'pending' } 
+          : t
+      )
+    );
+    
+    toast.success(`Transaction sent: ${tx.hash}`);
+    
+    // Wait for confirmation (but don't freeze the UI)
+    toast.info('Waiting for transaction confirmation...');
+    
+    // We use the await but in a non-blocking way
+    tx.wait().then((receipt: any) => {
+      // Update transaction status
       setTransactions(prev => 
         prev.map(t => 
           t.id === txId 
-            ? { ...t, hash: tx.hash, status: 'pending' } 
+            ? { ...t, status: 'success' } 
             : t
         )
       );
       
-      toast.success(`Transaction sent: ${tx.hash}`);
-      
-      // Wait for confirmation (but don't freeze the UI)
-      toast.info('Waiting for transaction confirmation...');
-      
-      // We use the await but in a non-blocking way
-      tx.wait().then((receipt: any) => {
-        // Update transaction status
-        setTransactions(prev => 
-          prev.map(t => 
-            t.id === txId 
-              ? { ...t, status: 'success' } 
-              : t
-          )
-        );
-        
-        toast.success(`Transaction confirmed!`);
-      }).catch((error: any) => {
-        console.error('Transaction confirmation error:', error);
-        
-        // Update transaction status
-        setTransactions(prev => 
-          prev.map(t => 
-            t.id === txId 
-              ? { ...t, status: 'error' } 
-              : t
-          )
-        );
-        
-        toast.error(`Transaction failed during confirmation`);
-      });
-    } catch (error: any) {
-      console.error('Transaction error:', error);
+      toast.success(`Transaction confirmed!`);
+    }).catch((error: any) => {
+      console.error('Transaction confirmation error:', error);
       
       // Update transaction status
       setTransactions(prev => 
         prev.map(t => 
           t.id === txId 
-            ? { ...t, status: 'error', error: error.message } 
+            ? { ...t, status: 'error' } 
             : t
         )
       );
       
-      toast.error(`Transaction failed: ${error.message || 'Unknown error'}`);
-    } finally {
-      setIsExecuting(false);
-    }
-  }, [contract, selectedFunctionDetails, privateKeySigner, contractAddress]);
+      toast.error(`Transaction failed during confirmation`);
+    });
+  } catch (error: any) {
+    console.error('Transaction error:', error);
+    
+    // Update transaction status
+    setTransactions(prev => 
+      prev.map(t => 
+        t.id === txId 
+          ? { ...t, status: 'error', error: error.message } 
+          : t
+      )
+    );
+    
+    toast.error(`Transaction failed: ${error.message || 'Unknown error'}`);
+  } finally {
+    setIsExecuting(false);
+  }
+}, [contract, contractAddress, contractABI, selectedFunctionDetails, privateKeySigner]);
+
 
   // Schedule a transaction for later execution
   const handleScheduleTransaction = useCallback((
