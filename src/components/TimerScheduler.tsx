@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -67,19 +66,67 @@ const TimerScheduler: React.FC<TimerSchedulerProps> = ({
     // If time is in the past for today, schedule for tomorrow
     const now = new Date();
     if (scheduledDate.getTime() < now.getTime()) {
-      toast.error('Scheduled time must be in the future');
-      return;
+      // Set it for tomorrow instead of showing an error
+      scheduledDate.setDate(scheduledDate.getDate() + 1);
+      toast.info(`Time is in the past - scheduled for tomorrow at ${scheduledTime}`);
     }
     
     const timeDiff = scheduledDate.getTime() - now.getTime(); // in milliseconds
     
-    toast.success(`Transaction scheduled for ${scheduledTime}`, {
-      description: `Execution in ${Math.floor(timeDiff / 60000)} minutes ${Math.floor((timeDiff % 60000) / 1000)} seconds`
+    toast.success(`Transaction scheduled for ${formatScheduledDateTime(scheduledDate)}`, {
+      description: `Execution in ${formatTimeRemaining(timeDiff)}`
     });
     
-    onSchedule(scheduledDate.getTime(), () => {
+    // Create a callback that only runs at the scheduled time
+    // Not executing immediately
+    const delayedCallback = () => {
       return Promise.resolve();
+    };
+    
+    onSchedule(scheduledDate.getTime(), delayedCallback);
+  };
+  
+  // Format time remaining in a human-readable format
+  const formatTimeRemaining = (timeDiffMs: number) => {
+    const seconds = Math.floor((timeDiffMs / 1000) % 60);
+    const minutes = Math.floor((timeDiffMs / (1000 * 60)) % 60);
+    const hours = Math.floor((timeDiffMs / (1000 * 60 * 60)));
+    
+    return hours > 0 
+      ? `${hours} hour${hours !== 1 ? 's' : ''}, ${minutes} minute${minutes !== 1 ? 's' : ''}`
+      : `${minutes} minute${minutes !== 1 ? 's' : ''}, ${seconds} second${seconds !== 1 ? 's' : ''}`;
+  };
+  
+  // Format scheduled date and time in a human-readable format
+  const formatScheduledDateTime = (date: Date) => {
+    return date.toLocaleString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
     });
+  };
+  
+  // Suggest times (current time + increments)
+  const suggestedTimes = () => {
+    const now = new Date();
+    const suggestions = [];
+    
+    // Add time suggestions: now+1min, now+5min, now+15min
+    for (const minutesToAdd of [1, 5, 15]) {
+      const suggestion = new Date(now.getTime() + minutesToAdd * 60 * 1000);
+      const hours = suggestion.getHours().toString().padStart(2, '0');
+      const minutes = suggestion.getMinutes().toString().padStart(2, '0');
+      const seconds = suggestion.getSeconds().toString().padStart(2, '0');
+      suggestions.push({
+        time: `${hours}:${minutes}:${seconds}`,
+        label: `+${minutesToAdd}m`
+      });
+    }
+    
+    return suggestions;
   };
   
   return (
@@ -119,6 +166,7 @@ const TimerScheduler: React.FC<TimerSchedulerProps> = ({
                   {functionName}
                 </Badge>
               </div>
+              
               <div className="flex gap-2">
                 <Input
                   id="scheduled-time"
@@ -136,6 +184,22 @@ const TimerScheduler: React.FC<TimerSchedulerProps> = ({
                 >
                   Schedule
                 </Button>
+              </div>
+              
+              {/* Quick time selection options */}
+              <div className="flex gap-2 mt-2">
+                {suggestedTimes().map((suggestion, index) => (
+                  <Button 
+                    key={index}
+                    size="sm"
+                    variant="outline" 
+                    className="text-xs py-1 h-8"
+                    onClick={() => setScheduledTime(suggestion.time)}
+                    disabled={!isActive}
+                  >
+                    {suggestion.label}
+                  </Button>
+                ))}
               </div>
               
               <div className="text-amber-500 text-xs mt-2 flex items-start gap-2">
