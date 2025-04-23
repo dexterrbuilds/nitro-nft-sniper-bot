@@ -414,35 +414,180 @@ const Index = () => {
   }, [contract, contractAddress, contractABI, selectedFunctionDetails, privateKeySigner, chainId]);
 
   // Schedule a transaction for later execution
-  const handleScheduleTransaction = useCallback((
-    id: string, 
-    scheduledTime: number, 
-    signature: string,
-    args: any[], 
-    value: string
-  ) => {
-    if (!contract || !signature || !selectedFunctionDetails || !privateKeySigner) {
-      toast.error('Contract not loaded, function not selected, or wallet not connected');
-      return;
-    }
-    
-    // Create a callback function to execute at the scheduled time
-    const executionCallback = async () => {
-      // This will run when the scheduled time is reached
-      return handleExecuteFunction(signature, args, value);
-    };
-    
-    // Schedule the transaction
-    scheduleTransaction({
-      id,
+const handleScheduleTransaction = useCallback((
+  id: string, 
+  scheduledTime: number, 
+  signature: string,
+  args: any[], 
+  value: string
+) => {
+  if (!contract || !signature || !selectedFunctionDetails || !privateKeySigner) {
+    toast.error('Contract not loaded, function not selected, or wallet not connected');
+    return;
+  }
+  
+  // Create a callback function to execute at the scheduled time
+  const executionCallback = async () => {
+    // Create a transaction record
+    const txId = id; // Use the same ID that was generated for scheduling
+    const newTx: Transaction = {
+      id: txId,
+      hash: '',
       functionName: selectedFunctionDetails.name,
       contractAddress: contractAddress,
-      args,
-      value,
-      scheduledTime,
-      executionCallback
-    });
-  }, [contract, selectedFunctionDetails, privateKeySigner, contractAddress, handleExecuteFunction]);
+      value: value,
+      status: 'pending',
+      timestamp: Date.now(),
+    };
+    
+    // Add to transaction history
+    setTransactions(prev => [newTx, ...prev]);
+    
+    try {
+      // Convert parameters to the right types
+      const processedArgs = args.map((arg, index) => {
+        const paramType = selectedFunctionDetails.inputs[index].type;
+        
+        // Specific type conversions
+        if (paramType.startsWith('uint') || paramType.startsWith('int')) {
+          return BigInt(arg);
+        }
+        
+        return arg;
+      });
+      
+      // Get a provider for the current chain
+      const targetProvider = getEthersProvider(chainId);
+      
+      // Connect private key signer to the target chain
+      const targetSigner = privateKeySigner.connect(targetProvider);
+      
+      // Create a new contract instance with the signer
+      const executionContract = new ethers.Contract(
+        contractAddress,
+        contractABI,
+        targetSigner
+      ) as EthersContract;
+      
+      // Parse ETH value properly
+      let valueAmount = BigInt(0);
+      if (selectedFunctionDetails.payable && value) {
+        try {
+          valueAmount = parseEth(value);
+          console.log(`Scheduled transaction value: ${value} ETH (${valueAmount} wei)`);
+        } catch (error) {
+          console.error('Error parsing ETH value:', error);
+          toast.error('Invalid ETH amount');
+          
+          // Update transaction status
+          setTransactions(prev => 
+            prev.map(t => 
+              t.id === txId 
+                ? { ...t, status: 'error', error: 'Invalid ETH amount' } 
+                : t
+            )
+          );
+          
+          return Promise.reject(new Error('Invalid ETH amount'));
+        }
+      }
+      
+      // Get current gas price from the network
+      const feeData = await targetProvider.getFeeData();
+      
+      // Set reasonable gas parameters
+      const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas ? 
+        feeData.maxPriorityFeePerGas : 
+        ethers.parseUnits("1.5", "gwei");
+      
+      const maxFeePerGas = feeData.maxFeePerGas ?
+        feeData.maxFeePerGas :
+        maxPriorityFeePerGas + ethers.parseUnits("2", "gwei");
+      
+      // Prepare transaction options with explicit gas parameters
+      const options = {
+        value: valueAmount,
+        maxPriorityFeePerGas: maxPriorityFeePerGas,
+        maxFeePerGas: maxFeePerGas,
+        gasLimit: 500000, // Increased gas limit for better compatibility
+      };
+      
+      // Log transaction details for debugging
+      console.log('Executing scheduled transaction:', {
+        function: signature,
+        args: processedArgs,
+        value: ethers.formatEther(valueAmount) + ' ETH',
+        maxPriorityFeePerGas: ethers.formatUnits(maxPriorityFeePerGas, "gwei") + ' gwei',
+        maxFeePerGas: ethers.formatUnits(maxFeePerGas, "gwei") + ' gwei',
+        chainId: chainId,
+        network: chainId === 8453 ? 'Base' : chainId === 16384 ? 'Ape Chain' : 'Custom Network'
+      });
+      
+      toast.info(`Executing scheduled transaction: ${selectedFunctionDetails.name}`);
+      
+      // Send transaction using the SIGNATURE as the key instead of just the function name
+      const tx = await executionContract[signature](...processedArgs, options);
+      
+      // Update transaction record with hash
+      setTransactions(prev => 
+        prev.map(t => 
+          t.id === txId 
+            ? { ...t, hash: tx.hash, status: 'pending' } 
+            : t
+        )
+      );
+      
+      toast.success(`Scheduled transaction sent: ${tx.hash}`);
+      
+      // Wait for confirmation
+      const receipt = await tx.wait();
+      
+      // Update transaction status
+      setTransactions(prev => 
+        prev.map(t => 
+          t.id === txId 
+            ? { ...t, status: 'success' } 
+            : t
+        )
+      );
+      
+      const networkName = chainId === 8453 ? 'Base' : 
+                         chainId === 16384 ? 'Ape Chain' : 
+                         'Network';
+      
+      toast.success(`Scheduled transaction confirmed on ${networkName}!`);
+      
+      return Promise.resolve();
+    } catch (error: any) {
+      console.error('Scheduled transaction error:', error);
+      
+      // Update transaction status
+      setTransactions(prev => 
+        prev.map(t => 
+          t.id === txId 
+            ? { ...t, status: 'error', error: error.message } 
+            : t
+        )
+      );
+      
+      toast.error(`Scheduled transaction failed: ${error.message || 'Unknown error'}`);
+      return Promise.reject(error);
+    }
+  };
+  
+  // Schedule the transaction
+  scheduleTransaction({
+    id,
+    functionName: selectedFunctionDetails.name,
+    contractAddress: contractAddress,
+    args,
+    value,
+    scheduledTime,
+    executionCallback
+  });
+  
+  toast.success(`Transaction scheduled for ${new Date(scheduledTime).toLocaleTimeString()}`);
+}, [contract, selectedFunctionDetails, contractAddress, contractABI, privateKeySigner, chainId, setTransactions]);
 
   // Handle private key connection - moved this functionality to ConnectWallet.tsx
   const handlePrivateKeyConnect = (address: string) => {
