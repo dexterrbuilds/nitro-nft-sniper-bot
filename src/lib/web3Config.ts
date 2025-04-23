@@ -131,7 +131,7 @@ const getRpcUrl = (chainId: number) => {
     case baseGoerli.id:
       return "https://goerli.base.org";
     case apeChain.id:
-      return "https://apechain.drpc.org"; // Updated to the correct RPC URL
+      return "https://apechain-mainnet.g.alchemy.com/v2/HH7IEuZ2i6-7pXDbtM3LHG_0zOHao5LR"; // Updated to the correct RPC URL
     case beraChain.id:
       return "https://berachain-mainnet.g.alchemy.com/v2/HH7IEuZ2i6-7pXDbtM3LHG_0zOHao5LR";
     case monadChain.id:
