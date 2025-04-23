@@ -191,58 +191,60 @@ const FunctionForm: React.FC<FunctionFormProps> = ({
     // Pass the full function signature to onSubmit
     onSubmit(functionSignature, args, ethValue || '0');
   };
+    
+const handleScheduleTransaction = (scheduledTime: number, callback: () => Promise<void>) => {
+  if (!functionDetails || !functionDetails.inputs) return;
   
-  const handleScheduleTransaction = (scheduledTime: number, callback: () => Promise<void>) => {
-    if (!functionDetails || !functionDetails.inputs) return;
+  // Validate inputs before scheduling
+  for (let i = 0; i < functionDetails.inputs.length; i++) {
+    const input = functionDetails.inputs[i];
+    const arg = args[i];
     
-    // Validate inputs before scheduling
-    for (let i = 0; i < functionDetails.inputs.length; i++) {
-      const input = functionDetails.inputs[i];
-      const arg = args[i];
-      
-      if (arg === '' || arg === undefined) {
-        toast.error(`${input.name || `Parameter #${i+1}`} is required for scheduling`);
-        return;
-      }
-      
-      if (input.type === 'address') {
-        if (!ethers.isAddress(arg)) {
-          toast.error(`${input.name || `Parameter #${i+1}`} is not a valid address`);
-          return;
-        }
-      }
-    }
-    
-    // Validate wallet connection
-    if (walletRequired && !walletConnected) {
-      toast.error('Please connect your wallet to schedule this transaction');
+    if (arg === '' || arg === undefined) {
+      toast.error(`${input.name || `Parameter #${i+1}`} is required for scheduling`);
       return;
     }
     
-    // Validate ETH value if payable
-    if (functionDetails.payable) {
-      try {
-        const value = parseEth(ethValue || '0');
-        if (value < 0n) {
-          toast.error('ETH value cannot be negative');
-          return;
-        }
-        if (balance && value > balance.value) {
-          toast.error('Insufficient funds for this transaction');
-          return;
-        }
-      } catch (e) {
-        toast.error('Invalid ETH amount');
+    if (input.type === 'address') {
+      if (!ethers.isAddress(arg)) {
+        toast.error(`${input.name || `Parameter #${i+1}`} is not a valid address`);
         return;
       }
     }
-    
-    const transactionId = uuidv4();
-    
-    if (onSchedule) {
-      onSchedule(transactionId, scheduledTime, functionSignature, [...args], ethValue || '0');
+  }
+  
+  // Validate wallet connection
+  if (walletRequired && !walletConnected) {
+    toast.error('Please connect your wallet to schedule this transaction');
+    return;
+  }
+  
+  // Validate ETH value if payable
+  if (functionDetails.payable) {
+    try {
+      const value = parseEth(ethValue || '0');
+      if (value < 0n) {
+        toast.error('ETH value cannot be negative');
+        return;
+      }
+      if (balance && value > balance.value) {
+        toast.error('Insufficient funds for this transaction');
+        return;
+      }
+    } catch (e) {
+      toast.error('Invalid ETH amount');
+      return;
     }
-  };
+  }
+  
+  const transactionId = uuidv4();
+  
+  if (onSchedule) {
+    // Pass the signature, args and value to the parent component to handle the scheduling
+    // Important: we're not executing the transaction immediately, just scheduling it
+    onSchedule(transactionId, scheduledTime, functionSignature, [...args], ethValue || '0');
+  }
+};
 
   // Guard against missing function details
   if (!functionDetails || !functionDetails.inputs) {
