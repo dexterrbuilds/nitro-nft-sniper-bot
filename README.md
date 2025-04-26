@@ -21,7 +21,7 @@ A powerful tool for interacting with NFT contracts on various blockchain network
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/nitro-nft-sniper-bot.git
+git clone https://github.com/dexterrbuilds/nitro-nft-sniper-bot.git
 ```
 
 2. Navigate to the project directory:
