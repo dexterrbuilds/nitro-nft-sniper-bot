@@ -67,7 +67,7 @@ The access key system uses several security measures:
 
 1. **Device Fingerprinting**: Keys are bound to the specific device they're first used on
 2. **Time-Limited Sessions**: Valid sessions expire after 24 hours, requiring re-validation
-3. **Server Verification**: Keys are validated against a secure database (simulated in this demo)
+3. **Server Verification**: Keys are validated against a secure database
 4. **Attempt Limiting**: Failed validation attempts are limited to prevent brute-force attacks
 
 ## Customizing the Access System
