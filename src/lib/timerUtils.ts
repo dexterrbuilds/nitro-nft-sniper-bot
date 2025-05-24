@@ -14,7 +14,7 @@ export interface ScheduledTransaction {
 let scheduledTransactions: ScheduledTransaction[] = [];
 let timers: { [key: string]: NodeJS.Timeout } = {};
 
-export const scheduleTransaction = (transaction: ScheduledTransaction): string => {
+export const scheduleTransaction = (transaction: ScheduledTransaction) => {
   // Add transaction to the queue
   scheduledTransactions.push(transaction);
   

@@ -7,9 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { WagmiConfig } from "wagmi";
 import { wagmiConfig } from "@/lib/web3Config";
-import AccessKeyGuard from "@/components/AccessKeyGuard";
 import Index from "./pages/Index";
-import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 
 // Create a buffer polyfill for browser environment
@@ -31,12 +29,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/admin" element={<Admin />} />
-            <Route path="/" element={
-              <AccessKeyGuard>
-                <Index />
-              </AccessKeyGuard>
-            } />
+            <Route path="/" element={<Index />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
