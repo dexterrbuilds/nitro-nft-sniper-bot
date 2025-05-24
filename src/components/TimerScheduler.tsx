@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -5,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from 'sonner';
-import { Timer, AlertTriangle, XCircle } from 'lucide-react';
+import { Timer, AlertTriangle } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -23,7 +24,7 @@ interface TimerSchedulerProps {
   onSchedule: (scheduledTime: number, callback: () => Promise<void>) => void;
   functionName: string;
   contractAddress: string;
-  isActive?: boolean; // Whether scheduling is active or not
+  isActive?: boolean;
 }
 
 const TimerScheduler: React.FC<TimerSchedulerProps> = ({
@@ -66,19 +67,16 @@ const TimerScheduler: React.FC<TimerSchedulerProps> = ({
     // If time is in the past for today, schedule for tomorrow
     const now = new Date();
     if (scheduledDate.getTime() < now.getTime()) {
-      // Set it for tomorrow instead of showing an error
       scheduledDate.setDate(scheduledDate.getDate() + 1);
       toast.info(`Time is in the past - scheduled for tomorrow at ${scheduledTime}`);
     }
     
-    const timeDiff = scheduledDate.getTime() - now.getTime(); // in milliseconds
+    const timeDiff = scheduledDate.getTime() - now.getTime();
     
     toast.success(`Transaction scheduled for ${formatScheduledDateTime(scheduledDate)}`, {
       description: `Execution in ${formatTimeRemaining(timeDiff)}`
     });
     
-    // Create a callback that only runs at the scheduled time
-    // Not executing immediately
     const delayedCallback = () => {
       return Promise.resolve();
     };
@@ -86,7 +84,6 @@ const TimerScheduler: React.FC<TimerSchedulerProps> = ({
     onSchedule(scheduledDate.getTime(), delayedCallback);
   };
   
-  // Format time remaining in a human-readable format
   const formatTimeRemaining = (timeDiffMs: number) => {
     const seconds = Math.floor((timeDiffMs / 1000) % 60);
     const minutes = Math.floor((timeDiffMs / (1000 * 60)) % 60);
@@ -97,7 +94,6 @@ const TimerScheduler: React.FC<TimerSchedulerProps> = ({
       : `${minutes} minute${minutes !== 1 ? 's' : ''}, ${seconds} second${seconds !== 1 ? 's' : ''}`;
   };
   
-  // Format scheduled date and time in a human-readable format
   const formatScheduledDateTime = (date: Date) => {
     return date.toLocaleString(undefined, {
       weekday: 'short',
@@ -109,12 +105,10 @@ const TimerScheduler: React.FC<TimerSchedulerProps> = ({
     });
   };
   
-  // Suggest times (current time + increments)
   const suggestedTimes = () => {
     const now = new Date();
     const suggestions = [];
     
-    // Add time suggestions: now+1min, now+5min, now+15min
     for (const minutesToAdd of [1, 5, 15]) {
       const suggestion = new Date(now.getTime() + minutesToAdd * 60 * 1000);
       const hours = suggestion.getHours().toString().padStart(2, '0');
@@ -186,7 +180,6 @@ const TimerScheduler: React.FC<TimerSchedulerProps> = ({
                 </Button>
               </div>
               
-              {/* Quick time selection options */}
               <div className="flex gap-2 mt-2">
                 {suggestedTimes().map((suggestion, index) => (
                   <Button 
