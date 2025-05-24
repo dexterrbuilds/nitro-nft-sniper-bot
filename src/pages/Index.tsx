@@ -22,6 +22,7 @@ import { Info } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import ScheduledTransactions from '@/components/ScheduledTransactions';
 import { scheduleTransaction, cancelScheduledTransaction } from '@/lib/timerUtils';
+import { checkTransactionQuota, incrementTransactionUsage } from '@/lib/accessKeyUtils';
 
 // Define a more specific type that allows indexing by string
 type EthersContract = ethers.Contract & {
@@ -230,6 +231,23 @@ const Index = () => {
       toast.error('Please connect using a private key to execute transactions');
       return;
     }
+
+    // Check transaction quota
+    const sessionData = localStorage.getItem('nitro-session');
+    if (sessionData) {
+      try {
+        const { keyHash } = JSON.parse(sessionData);
+        const userKey = atob(keyHash); // Decode the stored key
+        
+        if (!checkTransactionQuota(userKey)) {
+          toast.error('Transaction quota exceeded. Please upgrade your access key.');
+          return;
+        }
+      } catch (e) {
+        toast.error('Invalid session. Please re-authenticate.');
+        return;
+      }
+    }
     
     setIsExecuting(true);
     
@@ -361,6 +379,18 @@ const Index = () => {
       );
       
       toast.success(`Transaction sent: ${tx.hash}`);
+      
+      // Increment transaction usage after successful send
+      const sessionData = localStorage.getItem('nitro-session');
+      if (sessionData) {
+        try {
+          const { keyHash } = JSON.parse(sessionData);
+          const userKey = atob(keyHash);
+          incrementTransactionUsage(userKey);
+        } catch (e) {
+          console.error('Failed to increment transaction usage');
+        }
+      }
       
       // Wait for confirmation (but don't freeze the UI)
       toast.info('Waiting for transaction confirmation...');
