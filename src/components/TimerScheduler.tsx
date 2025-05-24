@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,13 +70,20 @@ const TimerScheduler: React.FC<TimerSchedulerProps> = ({
     setIsScheduling(true);
 
     try {
-      const scheduledTransaction = scheduleTransaction({
+      const scheduledTransaction: ScheduledTransaction = {
+        id: Math.random().toString(36).substr(2, 9),
         contractAddress,
         functionName: functionDetails?.name || 'Unknown',
-        parameters,
-        ethValue,
-        scheduledTime: executionTime
-      });
+        args: parameters,
+        value: ethValue,
+        scheduledTime: executionTime,
+        executionCallback: async () => {
+          // This would be the actual transaction execution logic
+          console.log('Executing scheduled transaction');
+        }
+      };
+
+      const transactionId = scheduleTransaction(scheduledTransaction);
 
       if (onScheduleTransaction) {
         onScheduleTransaction(scheduledTransaction);
