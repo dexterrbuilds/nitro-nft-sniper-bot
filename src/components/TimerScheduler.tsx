@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,8 +71,7 @@ const TimerScheduler: React.FC<TimerSchedulerProps> = ({
     try {
       const scheduledTransaction = scheduleTransaction({
         contractAddress,
-        functionSignature,
-        functionDetails,
+        functionName: functionDetails?.name || 'Unknown',
         parameters,
         ethValue,
         scheduledTime: executionTime
