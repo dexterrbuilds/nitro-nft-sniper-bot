@@ -1,13 +1,13 @@
 
-import { createConfig } from 'wagmi'
+import { createConfig, http } from 'wagmi'
 import { mainnet, sepolia } from 'wagmi/chains'
 import { ethers } from 'ethers'
 
 export const wagmiConfig = createConfig({
-  autoConnect: true,
-  publicClient: {
-    [mainnet.id]: () => new ethers.JsonRpcProvider('https://eth.llamarpc.com'),
-    [sepolia.id]: () => new ethers.JsonRpcProvider('https://rpc.sepolia.org'),
+  chains: [mainnet, sepolia],
+  transports: {
+    [mainnet.id]: http('https://eth.llamarpc.com'),
+    [sepolia.id]: http('https://rpc.sepolia.org'),
   },
 })
 
