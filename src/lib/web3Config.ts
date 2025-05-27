@@ -1,30 +1,16 @@
 
-import { createConfig, configureChains } from 'wagmi'
+import { createConfig } from 'wagmi'
 import { mainnet, sepolia } from 'wagmi/chains'
-import { jsonRpcProvider } from 'wagmi/providers/jsonRpc'
+import { http } from 'viem'
 import { ethers } from 'ethers'
 
-// Configure chains with providers for Wagmi v1
-const { chains, publicClient, webSocketPublicClient } = configureChains(
-  [mainnet, sepolia],
-  [
-    jsonRpcProvider({
-      rpc: (chain) => {
-        if (chain.id === mainnet.id) {
-          return { http: 'https://eth.llamarpc.com' }
-        }
-        if (chain.id === sepolia.id) {
-          return { http: 'https://rpc.sepolia.org' }
-        }
-        return null
-      },
-    }),
-  ]
-)
-
+// Simple Wagmi configuration without configureChains
 export const wagmiConfig = createConfig({
-  publicClient,
-  webSocketPublicClient,
+  chains: [mainnet, sepolia],
+  transports: {
+    [mainnet.id]: http('https://eth.llamarpc.com'),
+    [sepolia.id]: http('https://rpc.sepolia.org'),
+  },
 })
 
 // Chain options for the UI
