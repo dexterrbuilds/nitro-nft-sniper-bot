@@ -29,7 +29,7 @@
   }
 
   body {
-    @apply bg-cyber-dark text-cyber-text font-sans antialiased;
+    @apply bg-cyber-darker text-cyber-text font-sans antialiased;
     background-image: 
       radial-gradient(circle at 25% 25%, rgba(139, 92, 246, 0.05) 0%, transparent 50%),
       radial-gradient(circle at 75% 75%, rgba(245, 158, 11, 0.05) 0%, transparent 50%);
@@ -44,7 +44,7 @@
 @layer components {
   /* Cyber Panel Effect */
   .cyber-panel {
-    @apply relative bg-cyber-darker border border-cyber-accent/30 rounded-lg backdrop-blur-sm;
+    @apply relative bg-cyber-darker border border-cyber-accent-purple/30 rounded-lg backdrop-blur-sm;
     background: linear-gradient(135deg, rgba(139, 92, 246, 0.05) 0%, rgba(10, 10, 15, 0.8) 100%);
     box-shadow: 
       0 0 20px rgba(139, 92, 246, 0.1),
@@ -63,19 +63,18 @@
 
   /* Cyber Button */
   .cyber-button {
-    @apply relative px-6 py-3 bg-gradient-to-r from-cyber-accent to-cyber-accent-bright text-white font-mono font-medium rounded-md transition-all duration-300 hover:shadow-lg;
+    @apply relative px-6 py-3 bg-gradient-to-r from-cyber-accent-purple to-cyber-accent-bright text-white font-mono font-medium rounded-md transition-all duration-300 hover:shadow-lg;
     box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
     border: 1px solid rgba(139, 92, 246, 0.5);
   }
 
   .cyber-button:hover {
-    @apply shadow-cyber-accent/50;
     box-shadow: 0 0 30px rgba(139, 92, 246, 0.5);
     transform: translateY(-1px);
   }
 
   .cyber-button-alt {
-    @apply relative px-4 py-2 bg-cyber-dark border border-cyber-secondary/50 text-cyber-secondary font-mono font-medium rounded-md transition-all duration-300 hover:bg-cyber-secondary/10;
+    @apply relative px-4 py-2 bg-cyber-darker border border-cyber-secondary/50 text-cyber-secondary font-mono font-medium rounded-md transition-all duration-300 hover:bg-cyber-secondary/10;
   }
 
   .cyber-button-alt:hover {
@@ -85,12 +84,12 @@
 
   /* Cyber Input */
   .cyber-input {
-    @apply bg-cyber-dark border border-cyber-border text-cyber-text placeholder:text-cyber-text-muted focus:border-cyber-accent focus:ring-2 focus:ring-cyber-accent/20 rounded-md transition-all duration-300;
+    @apply bg-cyber-darker border border-cyber-border text-cyber-text placeholder:text-cyber-text-muted focus:border-cyber-accent-purple focus:ring-2 focus:ring-cyber-accent-purple/20 rounded-md transition-all duration-300;
   }
 
   /* Cyber Glow Text */
   .cyber-glow-text {
-    @apply text-transparent bg-clip-text bg-gradient-to-r from-cyber-accent to-cyber-secondary;
+    @apply text-transparent bg-clip-text bg-gradient-to-r from-cyber-accent-purple to-cyber-secondary;
     text-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
   }
 
@@ -117,11 +116,6 @@
     height: 2px;
     background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 1), transparent);
     animation: cyber-scan 3s infinite;
-  }
-
-  @keyframes cyber-scan {
-    0% { left: -100%; }
-    100% { left: 100%; }
   }
 }
 

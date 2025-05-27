@@ -70,7 +70,17 @@ export default {
 					'neon': '#fe53bb',
 					'highlight': '#09a8fa',
 					'warning': '#ffcc00',
-					'dark': '#131426'
+					'dark': '#131426',
+					// Add the new cyber theme colors
+					'darker': '#050508',
+					'accent-purple': '#8b5cf6',
+					'accent-bright': '#a855f7',
+					'secondary': '#f59e0b',
+					'secondary-bright': '#fbbf24',
+					'text': '#e2e8f0',
+					'text-muted': '#94a3b8',
+					'border': '#1e293b',
+					'grid': '#1a1a2e'
 				}
 			},
 			borderRadius: {
@@ -106,6 +116,10 @@ export default {
 				'glow': {
 					'0%, 100%': { opacity: 0.8 },
 					'50%': { opacity: 1 },
+				},
+				'cyber-scan': {
+					'0%': { left: '-100%' },
+					'100%': { left: '100%' }
 				}
 			},
 			animation: {
@@ -113,6 +127,7 @@ export default {
 				'accordion-up': 'accordion-up 0.2s ease-out',
 				'pulse-neon': 'pulse-neon 2s ease-in-out infinite',
 				'glow': 'glow 1.5s ease-in-out infinite',
+				'cyber-scan': 'cyber-scan 3s infinite',
 			},
 			fontFamily: {
 				'mono': ['JetBrains Mono', 'monospace'],
@@ -121,6 +136,7 @@ export default {
 			boxShadow: {
 				'neon': '0 0 5px #00ffc8, 0 0 10px #00ffc8',
 				'neon-strong': '0 0 10px #00ffc8, 0 0 20px #00ffc8',
+				'cyber-accent': '0 0 20px rgba(139, 92, 246, 0.3)',
 			},
 		}
 	},

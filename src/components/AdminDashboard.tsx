@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -40,7 +39,18 @@ const AdminDashboard: React.FC = () => {
         return;
       }
 
-      setAccessKeys(data || []);
+      // Type the data properly to match our AccessKey interface
+      const typedData: AccessKey[] = (data || []).map(item => ({
+        id: item.id,
+        key_value: item.key_value,
+        status: item.status as 'dormant' | 'activated' | 'revoked',
+        username: item.username,
+        created_at: item.created_at,
+        activated_at: item.activated_at,
+        last_used_at: item.last_used_at
+      }));
+
+      setAccessKeys(typedData);
     } catch (error) {
       console.error('Error fetching access keys:', error);
       toast.error('Error fetching access keys');
@@ -104,7 +114,7 @@ const AdminDashboard: React.FC = () => {
       case 'dormant':
         return <Badge variant="secondary" className="bg-gray-500/20 text-gray-400">Dormant</Badge>;
       case 'activated':
-        return <Badge variant="cyber" className="bg-cyber-accent/20 text-cyber-accent">Activated</Badge>;
+        return <Badge className="bg-cyber-accent-purple/20 text-cyber-accent-purple">Activated</Badge>;
       case 'revoked':
         return <Badge variant="destructive" className="bg-red-500/20 text-red-400">Revoked</Badge>;
       default:
@@ -131,7 +141,7 @@ const AdminDashboard: React.FC = () => {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <Shield className="w-8 h-8 text-cyber-accent" />
+            <Shield className="w-8 h-8 text-cyber-accent-purple" />
             <div>
               <h1 className="text-3xl font-bold cyber-glow-text">Admin Dashboard</h1>
               <p className="text-cyber-text-muted">Manage access keys and users</p>
@@ -174,7 +184,7 @@ const AdminDashboard: React.FC = () => {
               <CardTitle className="text-sm font-medium text-cyber-text-muted">Activated</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-cyber-accent">
+              <div className="text-2xl font-bold text-cyber-accent-purple">
                 {accessKeys.filter(k => k.status === 'activated').length}
               </div>
             </CardContent>
