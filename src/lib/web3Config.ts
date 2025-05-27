@@ -1,5 +1,6 @@
 
-import { createConfig, http } from 'wagmi'
+import { createConfig } from 'wagmi'
+import { http } from 'viem'
 import { mainnet, sepolia } from 'wagmi/chains'
 import { ethers } from 'ethers'
 
