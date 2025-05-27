@@ -1,7 +1,9 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import ContractInputForm from '@/components/ContractInputForm';
 import FunctionSelector from '@/components/FunctionSelector';
@@ -9,6 +11,7 @@ import FunctionForm from '@/components/FunctionForm';
 import TransactionHistory, { Transaction } from '@/components/TransactionHistory';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 import { 
   fetchContractABI, 
   getContractFunctions, 
@@ -18,7 +21,7 @@ import {
 } from '@/lib/contractUtils';
 import { v4 as uuidv4 } from 'uuid';
 import { getEthersProvider } from '@/lib/web3Config';
-import { Info } from 'lucide-react';
+import { Info, LogOut, Shield } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import ScheduledTransactions from '@/components/ScheduledTransactions';
 import { scheduleTransaction, cancelScheduledTransaction } from '@/lib/timerUtils';
@@ -32,6 +35,10 @@ const Index = () => {
   const { isConnected, address } = useAccount();
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
+  const navigate = useNavigate();
+
+  // User authentication state
+  const [userAuth, setUserAuth] = useState<{username: string, accessKey: string} | null>(null);
 
   // Contract state
   const [contractAddress, setContractAddress] = useState<string>('');
@@ -56,6 +63,29 @@ const Index = () => {
   // Add state for private key connected signer
   const [privateKeySigner, setPrivateKeySigner] = useState<ethers.Signer | null>(null);
   
+  // Check authentication on mount
+  useEffect(() => {
+    const storedAuth = localStorage.getItem('nitro_user');
+    if (!storedAuth) {
+      navigate('/auth');
+      return;
+    }
+
+    try {
+      const authData = JSON.parse(storedAuth);
+      setUserAuth(authData);
+    } catch (error) {
+      localStorage.removeItem('nitro_user');
+      navigate('/auth');
+    }
+  }, [navigate]);
+
+  // Handle logout
+  const handleLogout = () => {
+    localStorage.removeItem('nitro_user');
+    navigate('/auth');
+  };
+
   // Get contract from local storage on mount and set up storage listeners
   useEffect(() => {
     const storedTransactions = localStorage.getItem('nitro-nft-transactions');
@@ -603,8 +633,28 @@ const handleScheduleTransaction = useCallback((
     }
   };
 
+  // Show loading or redirect if not authenticated
+  if (!userAuth) {
+    return null; // The useEffect will handle the redirect
+  }
+
   return (
     <Layout>
+      <div className="absolute top-4 right-4 z-50 flex items-center space-x-3">
+        <div className="flex items-center space-x-2 px-3 py-1.5 rounded bg-cyber-dark border border-cyber-accent/30 text-sm">
+          <Shield className="w-4 h-4 text-cyber-accent" />
+          <span className="text-cyber-text font-mono">{userAuth.username}</span>
+        </div>
+        <Button 
+          onClick={handleLogout}
+          variant="outline"
+          className="cyber-button-alt"
+        >
+          <LogOut className="w-4 h-4 mr-2" />
+          Logout
+        </Button>
+      </div>
+
       <div className="grid md:grid-cols-7 gap-6">
         <div className="md:col-span-3 space-y-6">
           <Card className="cyber-panel bg-cyber-dark border-cyber-accent/30">

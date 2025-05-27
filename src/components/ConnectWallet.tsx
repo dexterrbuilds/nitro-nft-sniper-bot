@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAccount, useConnect, useDisconnect, useEnsName } from 'wagmi';
 import { Button } from '@/components/ui/button';
@@ -63,7 +64,7 @@ const ConnectWallet: React.FC = () => {
           {privateKeyAddress && (
             <Shield className="w-3 h-3 mr-1.5 text-cyber-accent" />
           )}
-          {ensName || shortenAddress(displayAddress as string)}
+          <span className="text-cyber-text">{ensName || shortenAddress(displayAddress as string)}</span>
         </div>
         <Button
           variant="outline"
@@ -88,13 +89,13 @@ const ConnectWallet: React.FC = () => {
       </Button>
 
       <Dialog open={privateKeyDialogOpen} onOpenChange={setPrivateKeyDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md cyber-panel">
           <DialogHeader>
-            <DialogTitle className="flex items-center">
+            <DialogTitle className="flex items-center text-cyber-text">
               <Key className="w-4 h-4 mr-2" />
               Connect with Private Key
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-cyber-text-muted">
               Enter your private key to connect directly. Use this only in a secure environment.
             </DialogDescription>
           </DialogHeader>
@@ -105,7 +106,7 @@ const ConnectWallet: React.FC = () => {
             <Button 
               type="button" 
               variant="secondary" 
-              className="absolute top-2 right-2 h-8 w-8 p-0"
+              className="absolute top-2 right-2 h-8 w-8 p-0 cyber-button-alt"
             >
               <X className="h-4 w-4" />
               <span className="sr-only">Close</span>
