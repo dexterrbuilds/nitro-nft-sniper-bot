@@ -18,32 +18,22 @@ export const chainOptions = [
 
 // Get Ethers provider for different chains
 export const getEthersProvider = (chainId: number) => {
-  switch (chainId) {
-    case 1:
-      return new ethers.JsonRpcProvider('https://eth.llamarpc.com');
-    case 5:
-      return new ethers.JsonRpcProvider('https://rpc.ankr.com/eth_goerli');
-    case 11155111:
-      return new ethers.JsonRpcProvider('https://rpc.sepolia.org');
-    case 137:
-      return new ethers.JsonRpcProvider('https://polygon-rpc.com');
-    case 80001:
-      return new ethers.JsonRpcProvider('https://rpc-mumbai.maticvigil.com');
-    case 42161:
-      return new ethers.JsonRpcProvider('https://arb1.arbitrum.io/rpc');
-    case 10:
-      return new ethers.JsonRpcProvider('https://mainnet.optimism.io');
-    case 56:
-      return new ethers.JsonRpcProvider('https://bsc-dataseed.binance.org');
-    case 8453:
-      return new ethers.JsonRpcProvider('https://mainnet.base.org');
-    case 84531:
-      return new ethers.JsonRpcProvider('https://goerli.base.org');
-    case 16384:
-      return new ethers.JsonRpcProvider('https://apechain.drpc.org');
-    default:
-      return new ethers.JsonRpcProvider('https://eth.llamarpc.com');
-  }
+  const rpcUrls: Record<number, string> = {
+    1: 'https://eth.llamarpc.com',
+    5: 'https://rpc.ankr.com/eth_goerli',
+    11155111: 'https://rpc.sepolia.org',
+    137: 'https://polygon-rpc.com',
+    80001: 'https://rpc-mumbai.maticvigil.com',
+    42161: 'https://arb1.arbitrum.io/rpc',
+    10: 'https://mainnet.optimism.io',
+    56: 'https://bsc-dataseed.binance.org',
+    8453: 'https://mainnet.base.org',
+    84531: 'https://goerli.base.org',
+    16384: 'https://apechain.drpc.org',
+  };
+
+  const rpcUrl = rpcUrls[chainId] || rpcUrls[1];
+  return new ethers.JsonRpcProvider(rpcUrl);
 };
 
 // Store for private key signer
@@ -52,8 +42,16 @@ let privateKeySigner: ethers.Signer | null = null;
 // Connect with private key function
 export const connectWithPrivateKey = async (privateKey: string): Promise<ethers.Signer | null> => {
   try {
+    // Clean the private key (remove 0x prefix if present)
+    const cleanPrivateKey = privateKey.startsWith('0x') ? privateKey.slice(2) : privateKey;
+    
+    // Validate private key format (should be 64 hex characters)
+    if (!/^[0-9a-fA-F]{64}$/.test(cleanPrivateKey)) {
+      throw new Error('Invalid private key format');
+    }
+    
     // Create wallet from private key
-    const wallet = new ethers.Wallet(privateKey);
+    const wallet = new ethers.Wallet('0x' + cleanPrivateKey);
     
     // Connect to default provider (Ethereum mainnet)
     const provider = getEthersProvider(1);
@@ -71,11 +69,19 @@ export const connectWithPrivateKey = async (privateKey: string): Promise<ethers.
     return signer;
   } catch (error) {
     console.error('Error connecting with private key:', error);
-    return null;
+    throw error;
   }
 };
 
 // Get current private key signer
 export const getPrivateKeySigner = (): ethers.Signer | null => {
   return privateKeySigner;
+};
+
+// Disconnect wallet
+export const disconnectWallet = () => {
+  privateKeySigner = null;
+  // Dispatch disconnect event
+  const event = new CustomEvent('walletDisconnected');
+  window.dispatchEvent(event);
 };
