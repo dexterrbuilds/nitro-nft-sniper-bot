@@ -15,7 +15,7 @@ interface ContractInputFormProps {
 
 const ContractInputForm: React.FC<ContractInputFormProps> = ({ onSubmit, isLoading }) => {
   const [contractAddress, setContractAddress] = useState('');
-  const [selectedChainId, setSelectedChainId] = useState<number>(1); // Default to Ethereum mainnet
+  const [selectedChainId, setSelectedChainId] = useState<number>(5); // Default to Goerli testnet
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,9 +61,13 @@ const ContractInputForm: React.FC<ContractInputFormProps> = ({ onSubmit, isLoadi
           <SelectTrigger id="chain" className="cyber-input">
             <SelectValue placeholder="Select network" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="bg-cyber-dark border-cyber-accent-purple/30 z-50">
             {chainOptions.map((chain) => (
-              <SelectItem key={chain.id} value={chain.id.toString()}>
+              <SelectItem 
+                key={chain.id} 
+                value={chain.id.toString()}
+                className="text-cyber-text hover:bg-cyber-accent-purple/20 focus:bg-cyber-accent-purple/20"
+              >
                 {chain.name}
               </SelectItem>
             ))}

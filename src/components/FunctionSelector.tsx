@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -107,10 +108,10 @@ const FunctionSelector: React.FC<FunctionSelectorProps> = ({
           <SelectTrigger id="function-select" className="cyber-input">
             <SelectValue placeholder="Select function to call" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="bg-cyber-dark border-cyber-accent-purple/30 z-50">
             {mintFunctions.length > 0 && (
               <>
-                <div className="px-2 py-1.5 text-xs text-cyber-accent">Mint Functions</div>
+                <div className="px-2 py-1.5 text-xs text-cyber-accent-purple font-semibold">Mint Functions</div>
                 {mintFunctions.map((func) => (
                   <SelectItem key={func.signature} value={func.signature}>
                     {func.displayName}
@@ -121,7 +122,7 @@ const FunctionSelector: React.FC<FunctionSelectorProps> = ({
             
             {otherFunctions.length > 0 && (
               <>
-                <div className="px-2 py-1.5 text-xs text-cyber-accent">Other Functions</div>
+                <div className="px-2 py-1.5 text-xs text-cyber-accent-purple font-semibold">Other Functions</div>
                 {otherFunctions.map((func) => (
                   <SelectItem key={func.signature} value={func.signature}>
                     {func.displayName}

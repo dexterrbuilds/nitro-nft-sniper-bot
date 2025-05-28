@@ -1,9 +1,7 @@
-
 import { ethers } from 'ethers'
 
-// Chain options for the UI
+// Chain options for the UI (removed Ethereum Mainnet)
 export const chainOptions = [
-  { id: 1, name: 'Ethereum Mainnet', symbol: 'ETH' },
   { id: 5, name: 'Goerli Testnet', symbol: 'ETH' },
   { id: 11155111, name: 'Sepolia Testnet', symbol: 'ETH' },
   { id: 137, name: 'Polygon Mainnet', symbol: 'MATIC' },
@@ -19,7 +17,6 @@ export const chainOptions = [
 // Get Ethers provider for different chains
 export const getEthersProvider = (chainId: number) => {
   const rpcUrls: Record<number, string> = {
-    1: 'https://eth.llamarpc.com',
     5: 'https://rpc.ankr.com/eth_goerli',
     11155111: 'https://rpc.sepolia.org',
     137: 'https://polygon-rpc.com',
@@ -32,7 +29,7 @@ export const getEthersProvider = (chainId: number) => {
     16384: 'https://apechain.drpc.org',
   };
 
-  const rpcUrl = rpcUrls[chainId] || rpcUrls[1];
+  const rpcUrl = rpcUrls[chainId] || rpcUrls[5]; // Default to Goerli instead of mainnet
   return new ethers.JsonRpcProvider(rpcUrl);
 };
 
@@ -53,8 +50,8 @@ export const connectWithPrivateKey = async (privateKey: string): Promise<ethers.
     // Create wallet from private key
     const wallet = new ethers.Wallet('0x' + cleanPrivateKey);
     
-    // Connect to default provider (Ethereum mainnet)
-    const provider = getEthersProvider(1);
+    // Connect to default provider (Goerli instead of mainnet)
+    const provider = getEthersProvider(5);
     const signer = wallet.connect(provider);
     
     // Store the signer
