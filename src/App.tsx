@@ -8,6 +8,15 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 
+// Create a buffer polyfill for browser environment
+if (typeof window !== 'undefined' && !window.Buffer) {
+  window.Buffer = {
+    from: (data: string) => new Uint8Array(
+      data.split('').map(char => char.charCodeAt(0))
+    ),
+  } as any;
+}
+
 const queryClient = new QueryClient();
 
 const App = () => (
