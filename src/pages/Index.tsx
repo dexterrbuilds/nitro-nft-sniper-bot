@@ -1,301 +1,299 @@
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
-import AdminDashboard from '@/components/AdminDashboard';
+import { Badge } from '@/components/ui/badge';
+import { Activity, Zap, Shield, TrendingUp } from 'lucide-react';
+import TransactionHistory, { Transaction } from '@/components/TransactionHistory';
 
 const Index = () => {
   const navigate = useNavigate();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [username, setUsername] = useState('');
-  const [accessKey, setAccessKey] = useState('');
-  const [activeTab, setActiveTab] = useState('new');
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isConnected, setIsConnected] = useState(false);
+  const [walletAddress, setWalletAddress] = useState('');
 
-  // Check if user is already authenticated
+  // Mock real-time transaction updates
   useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        setIsAuthenticated(true);
-        // Check if user is admin
-        const { data: adminData } = await supabase
-          .from('admin_users')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .single();
-        
-        if (adminData) {
-          setIsAdmin(true);
+    const interval = setInterval(() => {
+      // Simulate random transaction status updates
+      setTransactions(prev => prev.map(tx => {
+        if (tx.status === 'pending' && Math.random() > 0.7) {
+          return {
+            ...tx,
+            status: Math.random() > 0.2 ? 'success' : 'error' as const,
+            error: Math.random() > 0.2 ? undefined : 'Gas estimation failed'
+          };
         }
-      }
-    };
-    checkAuth();
+        return tx;
+      }));
+    }, 3000);
+
+    return () => clearInterval(interval);
   }, []);
 
-  const handleNewUserAuth = async () => {
-    if (!accessKey.trim()) {
-      toast.error('Please enter an access key');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // Check if access key exists and is valid
-      const { data: keyData, error: keyError } = await supabase
-        .from('access_keys')
-        .select('*')
-        .eq('key_value', accessKey)
-        .eq('status', 'activated')
-        .single();
-
-      if (keyError || !keyData) {
-        toast.error('Invalid or inactive access key');
-        setLoading(false);
-        return;
-      }
-
-      // Create a dummy email for Supabase auth using the access key
-      const email = `${accessKey}@nftsniper.local`;
-      
-      // Try to sign up or sign in
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password: accessKey,
-      });
-
-      if (authError && authError.message.includes('already registered')) {
-        // User exists, try to sign in
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password: accessKey,
-        });
-
-        if (signInError) {
-          toast.error('Authentication failed');
-          setLoading(false);
-          return;
-        }
-      } else if (authError) {
-        toast.error('Authentication failed');
-        setLoading(false);
-        return;
-      }
-
-      // Check if this user should be admin
-      if (keyData.username === 'admin_user') {
-        setIsAdmin(true);
-      }
-
-      setIsAuthenticated(true);
-      toast.success('Authentication successful!');
-    } catch (error) {
-      console.error('Auth error:', error);
-      toast.error('Authentication failed');
-    } finally {
-      setLoading(false);
-    }
+  const handleConnectWallet = () => {
+    // Mock wallet connection
+    setIsConnected(true);
+    setWalletAddress('0x742d35Cc6634C0532925a3b8D4C7');
+    toast.success('Wallet connected successfully!');
   };
 
-  const handleReturningUserAuth = async () => {
-    if (!username.trim() || !accessKey.trim()) {
-      toast.error('Please enter both username and access key');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // Check if access key matches username
-      const { data: keyData, error: keyError } = await supabase
-        .from('access_keys')
-        .select('*')
-        .eq('key_value', accessKey)
-        .eq('username', username)
-        .eq('status', 'activated')
-        .single();
-
-      if (keyError || !keyData) {
-        toast.error('Invalid username or access key');
-        setLoading(false);
-        return;
-      }
-
-      // Sign in using the access key
-      const email = `${accessKey}@nftsniper.local`;
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password: accessKey,
-      });
-
-      if (signInError) {
-        toast.error('Authentication failed');
-        setLoading(false);
-        return;
-      }
-
-      // Check if this user should be admin
-      if (keyData.username === 'admin_user') {
-        setIsAdmin(true);
-      }
-
-      setIsAuthenticated(true);
-      toast.success('Welcome back!');
-    } catch (error) {
-      console.error('Auth error:', error);
-      toast.error('Authentication failed');
-    } finally {
-      setLoading(false);
-    }
+  const handleDisconnectWallet = () => {
+    setIsConnected(false);
+    setWalletAddress('');
+    toast.info('Wallet disconnected');
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setIsAuthenticated(false);
-    setIsAdmin(false);
-    setUsername('');
-    setAccessKey('');
-    setActiveTab('new');
-    toast.success('Logged out successfully');
-  };
-
-  if (isAuthenticated) {
-    if (isAdmin) {
-      return <AdminDashboard onLogout={handleLogout} />;
-    }
+  const addMockTransaction = () => {
+    const mockTx: Transaction = {
+      id: `tx-${Date.now()}`,
+      hash: `0x${Math.random().toString(16).substr(2, 64)}`,
+      functionName: 'mint',
+      contractAddress: '0x742d35Cc6634C0532925a3b8D4C7',
+      value: '0.1',
+      status: 'pending',
+      timestamp: Date.now(),
+    };
     
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md bg-black/80 border-purple-500/30 text-white">
-          <CardHeader className="text-center">
-            <CardTitle className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-              NFT Sniper Dashboard
-            </CardTitle>
-            <CardDescription className="text-gray-300">
-              Welcome to your NFT sniping dashboard
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button 
-              onClick={() => navigate('/admin')} 
-              className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-            >
-              Go to Sniper Bot
-            </Button>
-            <Button 
-              onClick={handleLogout} 
-              variant="outline" 
-              className="w-full border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
-            >
-              Logout
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+    setTransactions(prev => [mockTx, ...prev]);
+    toast.info('Transaction submitted');
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md bg-black/80 border-purple-500/30 text-white">
-        <CardHeader className="text-center">
-          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-            NFT Sniper Bot
-          </CardTitle>
-          <CardDescription className="text-gray-300">
-            Enter your access credentials to continue
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 bg-gray-800/50">
-              <TabsTrigger 
-                value="new" 
-                className="data-[state=active]:bg-purple-600 data-[state=active]:text-white"
-              >
-                New User
-              </TabsTrigger>
-              <TabsTrigger 
-                value="returning" 
-                className="data-[state=active]:bg-purple-600 data-[state=active]:text-white"
-              >
-                Returning User
-              </TabsTrigger>
-            </TabsList>
+    <div className="min-h-screen bg-cyber-darker cyber-grid">
+      {/* Header */}
+      <header className="border-b border-cyber-accent-purple/20 bg-cyber-dark/80 backdrop-blur-sm">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Zap className="w-8 h-8 text-cyber-accent-purple" />
+                <div className="absolute inset-0 animate-pulse-neon rounded-full"></div>
+              </div>
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold font-mono cyber-glow-text">
+                  NITRO<span className="text-cyber-secondary">NFT</span>
+                </h1>
+                <p className="text-xs text-cyber-text-muted font-mono">
+                  Next-Gen Contract Interaction
+                </p>
+              </div>
+            </div>
             
-            <TabsContent value="new" className="space-y-4 mt-4">
-              <div className="space-y-2">
-                <Label htmlFor="new-access-key" className="text-sm font-medium text-gray-300">
-                  Access Key
-                </Label>
-                <Input
-                  id="new-access-key"
-                  type="text"
-                  placeholder="Enter your access key"
-                  value={accessKey}
-                  onChange={(e) => setAccessKey(e.target.value)}
-                  className="bg-gray-800/50 border-purple-500/30 text-white placeholder-gray-400"
-                />
-              </div>
-              <Button 
-                onClick={handleNewUserAuth}
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-              >
-                {loading ? 'Authenticating...' : 'Access Bot'}
-              </Button>
-            </TabsContent>
-            
-            <TabsContent value="returning" className="space-y-4 mt-4">
-              <div className="space-y-2">
-                <Label htmlFor="username" className="text-sm font-medium text-gray-300">
-                  Username
-                </Label>
-                <Input
-                  id="username"
-                  type="text"
-                  placeholder="Enter your username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="bg-gray-800/50 border-purple-500/30 text-white placeholder-gray-400"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="returning-access-key" className="text-sm font-medium text-gray-300">
-                  Access Key (Password)
-                </Label>
-                <Input
-                  id="returning-access-key"
-                  type="password"
-                  placeholder="Enter your access key"
-                  value={accessKey}
-                  onChange={(e) => setAccessKey(e.target.value)}
-                  className="bg-gray-800/50 border-purple-500/30 text-white placeholder-gray-400"
-                />
-              </div>
-              <Button 
-                onClick={handleReturningUserAuth}
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-              >
-                {loading ? 'Signing In...' : 'Sign In'}
-              </Button>
-            </TabsContent>
-          </Tabs>
-          
-          <div className="mt-6 p-4 bg-gray-800/30 rounded-lg border border-purple-500/20">
-            <p className="text-xs text-gray-400 mb-2">Test Credentials:</p>
-            <p className="text-xs text-purple-300">Admin: NK-ADMIN1234TESTKEY567</p>
-            <p className="text-xs text-purple-300">User: NK-USER9876TESTKEY543 (username: test_user)</p>
+            <div className="flex items-center gap-3">
+              <Badge variant="outline" className="border-cyber-accent-purple/50 text-cyber-accent-purple animate-glow">
+                <Activity className="w-3 h-3 mr-1" />
+                ACTIVE
+              </Badge>
+              {isConnected ? (
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-green-500/20 text-green-400 border-green-500/50">
+                    Connected
+                  </Badge>
+                  <Button 
+                    onClick={handleDisconnectWallet}
+                    variant="outline"
+                    size="sm"
+                    className="cyber-button-alt"
+                  >
+                    Disconnect
+                  </Button>
+                </div>
+              ) : (
+                <Button 
+                  onClick={handleConnectWallet}
+                  className="cyber-button"
+                >
+                  Connect Wallet
+                </Button>
+              )}
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Stats Cards */}
+          <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <Card className="cyber-panel">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-cyber-text-muted">Total Transactions</p>
+                    <p className="text-2xl font-bold text-cyber-accent-purple">{transactions.length}</p>
+                  </div>
+                  <TrendingUp className="w-8 h-8 text-cyber-accent-purple" />
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="cyber-panel">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-cyber-text-muted">Success Rate</p>
+                    <p className="text-2xl font-bold text-cyber-secondary">
+                      {transactions.length > 0 
+                        ? Math.round((transactions.filter(tx => tx.status === 'success').length / transactions.length) * 100)
+                        : 0}%
+                    </p>
+                  </div>
+                  <Shield className="w-8 h-8 text-cyber-secondary" />
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="cyber-panel">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-cyber-text-muted">Pending</p>
+                    <p className="text-2xl font-bold text-yellow-400">
+                      {transactions.filter(tx => tx.status === 'pending').length}
+                    </p>
+                  </div>
+                  <Activity className="w-8 h-8 text-yellow-400 animate-pulse" />
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="cyber-panel">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-cyber-text-muted">Gas Saved</p>
+                    <p className="text-2xl font-bold text-green-400">15.3%</p>
+                  </div>
+                  <Zap className="w-8 h-8 text-green-400" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Contract Interaction Panel */}
+          <div className="lg:col-span-2">
+            <Card className="cyber-panel cyber-border-animated h-fit">
+              <CardHeader>
+                <CardTitle className="cyber-glow-text">Contract Interaction</CardTitle>
+                <CardDescription className="text-cyber-text-muted">
+                  Execute smart contract functions with optimized gas usage
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-cyber-text">Contract Address</Label>
+                    <Input 
+                      placeholder="0x..." 
+                      className="cyber-input"
+                      disabled={!isConnected}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-cyber-text">Function</Label>
+                    <Input 
+                      placeholder="mint, transfer, etc." 
+                      className="cyber-input"
+                      disabled={!isConnected}
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-cyber-text">Parameters (JSON)</Label>
+                  <Input 
+                    placeholder='{"to": "0x...", "amount": "1"}' 
+                    className="cyber-input"
+                    disabled={!isConnected}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-cyber-text">Gas Limit</Label>
+                    <Input 
+                      placeholder="Auto" 
+                      className="cyber-input"
+                      disabled={!isConnected}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-cyber-text">Value (ETH)</Label>
+                    <Input 
+                      placeholder="0.0" 
+                      className="cyber-input"
+                      disabled={!isConnected}
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Button 
+                    onClick={addMockTransaction}
+                    disabled={!isConnected}
+                    className="cyber-button flex-1"
+                  >
+                    Execute Transaction
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    disabled={!isConnected}
+                    className="cyber-button-alt flex-1"
+                  >
+                    Simulate
+                  </Button>
+                </div>
+                
+                {!isConnected && (
+                  <div className="text-center p-4 border border-dashed border-cyber-accent-purple/30 rounded-lg">
+                    <p className="text-cyber-text-muted">Connect your wallet to start interacting with contracts</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Transaction History */}
+          <div className="lg:col-span-1">
+            <Card className="cyber-panel h-fit">
+              <CardHeader>
+                <CardTitle className="text-cyber-accent-purple">Transaction History</CardTitle>
+                <CardDescription className="text-cyber-text-muted">
+                  Real-time status updates
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <TransactionHistory transactions={transactions} />
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="border-t border-cyber-accent-purple/20 bg-cyber-dark/50 mt-12">
+        <div className="container mx-auto px-4 py-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-cyber-text-muted font-mono text-sm">
+              © 2024 NITRO-NFT • Powered by Advanced Contract Interaction
+            </p>
+            <div className="flex items-center gap-4">
+              <Badge variant="outline" className="border-cyber-secondary/50 text-cyber-secondary">
+                v2.0.1
+              </Badge>
+              <Badge variant="outline" className="border-green-500/50 text-green-400">
+                Mainnet
+              </Badge>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };
