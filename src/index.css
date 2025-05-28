@@ -9,9 +9,9 @@
   /* Enhanced Cyber Theme Colors */
   --cyber-dark: #0a0a0f;
   --cyber-darker: #050508;
-  --cyber-accent: #8b5cf6; /* Purple */
+  --cyber-accent-purple: #8b5cf6;
   --cyber-accent-bright: #a855f7;
-  --cyber-secondary: #f59e0b; /* Amber */
+  --cyber-secondary: #f59e0b;
   --cyber-secondary-bright: #fbbf24;
   --cyber-text: #e2e8f0;
   --cyber-text-muted: #94a3b8;
@@ -176,6 +176,15 @@
     animation: cyber-scan 4s infinite;
   }
 
+  /* Glow animation */
+  .animate-glow {
+    animation: glow 2s ease-in-out infinite alternate;
+  }
+
+  .animate-pulse-neon {
+    animation: pulse-neon 2s ease-in-out infinite;
+  }
+
   /* Responsive utilities */
   .responsive-grid {
     @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4;
@@ -200,11 +209,16 @@
   .bg-cyber-darker { background-color: var(--cyber-darker); }
   .text-cyber-text { color: var(--cyber-text); }
   .text-cyber-text-muted { color: var(--cyber-text-muted); }
-  .text-cyber-accent { color: var(--cyber-accent); }
+  .text-cyber-accent-purple { color: var(--cyber-accent-purple); }
   .text-cyber-secondary { color: var(--cyber-secondary); }
-  .border-cyber-accent { border-color: var(--cyber-accent); }
+  .text-cyber-secondary-bright { color: var(--cyber-secondary-bright); }
+  .border-cyber-accent-purple { border-color: var(--cyber-accent-purple); }
   .border-cyber-secondary { border-color: var(--cyber-secondary); }
   .border-cyber-border { border-color: var(--cyber-border); }
+  .from-cyber-accent-purple { --tw-gradient-from: var(--cyber-accent-purple); }
+  .to-cyber-accent-bright { --tw-gradient-to: var(--cyber-accent-bright); }
+  .via-cyber-accent-bright { --tw-gradient-via: var(--cyber-accent-bright); }
+  .to-cyber-secondary { --tw-gradient-to: var(--cyber-secondary); }
 
   /* Responsive spacing utilities */
   .space-responsive {
@@ -244,6 +258,26 @@
   100% { 
     left: 100%; 
     opacity: 0;
+  }
+}
+
+@keyframes glow {
+  from {
+    box-shadow: 0 0 5px rgba(139, 92, 246, 0.5);
+  }
+  to {
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.8);
+  }
+}
+
+@keyframes pulse-neon {
+  0%, 100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 5px rgba(139, 92, 246, 0.8));
+  }
+  50% {
+    opacity: 0.8;
+    filter: drop-shadow(0 0 10px rgba(139, 92, 246, 1));
   }
 }
 

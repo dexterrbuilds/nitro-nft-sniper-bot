@@ -4,22 +4,32 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Activity, Zap, Shield, TrendingUp } from 'lucide-react';
+import { Activity, Zap, Shield, TrendingUp, Key, Search, AlertTriangle } from 'lucide-react';
 import TransactionHistory, { Transaction } from '@/components/TransactionHistory';
+import ConnectWallet from '@/components/ConnectWallet';
+import ContractInputForm from '@/components/ContractInputForm';
+import FunctionSelector from '@/components/FunctionSelector';
+import FunctionForm from '@/components/FunctionForm';
+import { fetchContractABI, getContractFunctions, isValidAddress } from '@/lib/contractUtils';
+import { getPrivateKeySigner } from '@/lib/web3Config';
 
 const Index = () => {
-  const navigate = useNavigate();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [walletAddress, setWalletAddress] = useState('');
+  const [contractAddress, setContractAddress] = useState('');
+  const [contractABI, setContractABI] = useState<any[] | null>(null);
+  const [contractFunctions, setContractFunctions] = useState<{ writeFunctions: any[]; readFunctions: any[] }>({ writeFunctions: [], readFunctions: [] });
+  const [selectedFunction, setSelectedFunction] = useState<string | null>(null);
+  const [selectedFunctionDetails, setSelectedFunctionDetails] = useState<any>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isExecuting, setIsExecuting] = useState(false);
 
   // Mock real-time transaction updates
   useEffect(() => {
     const interval = setInterval(() => {
-      // Simulate random transaction status updates
       setTransactions(prev => prev.map(tx => {
         if (tx.status === 'pending' && Math.random() > 0.7) {
           return {
@@ -35,32 +45,108 @@ const Index = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const handleConnectWallet = () => {
-    // Mock wallet connection
-    setIsConnected(true);
-    setWalletAddress('0x742d35Cc6634C0532925a3b8D4C7');
-    toast.success('Wallet connected successfully!');
-  };
-
-  const handleDisconnectWallet = () => {
-    setIsConnected(false);
-    setWalletAddress('');
-    toast.info('Wallet disconnected');
-  };
-
-  const addMockTransaction = () => {
-    const mockTx: Transaction = {
-      id: `tx-${Date.now()}`,
-      hash: `0x${Math.random().toString(16).substr(2, 64)}`,
-      functionName: 'mint',
-      contractAddress: '0x742d35Cc6634C0532925a3b8D4C7',
-      value: '0.1',
-      status: 'pending',
-      timestamp: Date.now(),
+  // Listen for private key connection events
+  useEffect(() => {
+    const handlePrivateKeyConnected = (event: CustomEvent) => {
+      if (event.detail && event.detail.signer) {
+        const signer = event.detail.signer;
+        signer.getAddress().then((address: string) => {
+          setIsConnected(true);
+          setWalletAddress(address);
+          toast.success(`Wallet connected: ${address.slice(0, 6)}...${address.slice(-4)}`);
+        });
+      }
     };
+
+    window.addEventListener('privateKeyConnected', handlePrivateKeyConnected as EventListener);
     
-    setTransactions(prev => [mockTx, ...prev]);
-    toast.info('Transaction submitted');
+    return () => {
+      window.removeEventListener('privateKeyConnected', handlePrivateKeyConnected as EventListener);
+    };
+  }, []);
+
+  const handleAnalyzeContract = async (address: string, chainId: number) => {
+    if (!isValidAddress(address)) {
+      toast.error('Invalid contract address');
+      return;
+    }
+
+    setIsAnalyzing(true);
+    setContractAddress(address);
+    
+    try {
+      toast.info('Analyzing contract...');
+      const abi = await fetchContractABI(address, chainId);
+      
+      if (abi) {
+        setContractABI(abi);
+        const functions = getContractFunctions(abi);
+        setContractFunctions(functions);
+        
+        toast.success(`Contract analyzed! Found ${functions.writeFunctions.length} write functions and ${functions.readFunctions.length} read functions`);
+      } else {
+        toast.error('Failed to fetch contract ABI');
+        setContractABI(null);
+        setContractFunctions({ writeFunctions: [], readFunctions: [] });
+      }
+    } catch (error) {
+      console.error('Error analyzing contract:', error);
+      toast.error('Error analyzing contract');
+      setContractABI(null);
+      setContractFunctions({ writeFunctions: [], readFunctions: [] });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleFunctionSelect = (signature: string, functionDetails: any) => {
+    setSelectedFunction(signature);
+    setSelectedFunctionDetails(functionDetails);
+  };
+
+  const handleFunctionExecute = async (signature: string, args: any[], value: string) => {
+    if (!isConnected) {
+      toast.error('Please connect your wallet first');
+      return;
+    }
+
+    const signer = getPrivateKeySigner();
+    if (!signer) {
+      toast.error('No wallet connected');
+      return;
+    }
+
+    setIsExecuting(true);
+    
+    try {
+      const mockTx: Transaction = {
+        id: `tx-${Date.now()}`,
+        hash: `0x${Math.random().toString(16).substr(2, 64)}`,
+        functionName: selectedFunctionDetails?.name || 'unknown',
+        contractAddress: contractAddress,
+        value: value,
+        status: 'pending',
+        timestamp: Date.now(),
+      };
+      
+      setTransactions(prev => [mockTx, ...prev]);
+      toast.info(`Transaction submitted: ${selectedFunctionDetails?.name}`);
+      
+      // Simulate transaction processing
+      setTimeout(() => {
+        setTransactions(prev => prev.map(tx => 
+          tx.id === mockTx.id 
+            ? { ...tx, status: Math.random() > 0.2 ? 'success' : 'error' as const }
+            : tx
+        ));
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Transaction failed:', error);
+      toast.error('Transaction failed');
+    } finally {
+      setIsExecuting(false);
+    }
   };
 
   return (
@@ -89,28 +175,7 @@ const Index = () => {
                 <Activity className="w-3 h-3 mr-1" />
                 ACTIVE
               </Badge>
-              {isConnected ? (
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-green-500/20 text-green-400 border-green-500/50">
-                    Connected
-                  </Badge>
-                  <Button 
-                    onClick={handleDisconnectWallet}
-                    variant="outline"
-                    size="sm"
-                    className="cyber-button-alt"
-                  >
-                    Disconnect
-                  </Button>
-                </div>
-              ) : (
-                <Button 
-                  onClick={handleConnectWallet}
-                  className="cyber-button"
-                >
-                  Connect Wallet
-                </Button>
-              )}
+              <ConnectWallet />
             </div>
           </div>
         </div>
@@ -176,83 +241,51 @@ const Index = () => {
             </Card>
           </div>
 
-          {/* Contract Interaction Panel */}
+          {/* Contract Analysis Panel */}
           <div className="lg:col-span-2">
-            <Card className="cyber-panel cyber-border-animated h-fit">
+            <Card className="cyber-panel cyber-border-animated">
               <CardHeader>
                 <CardTitle className="cyber-glow-text">Contract Interaction</CardTitle>
                 <CardDescription className="text-cyber-text-muted">
-                  Execute smart contract functions with optimized gas usage
+                  Analyze smart contracts and execute functions with optimized gas usage
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-cyber-text">Contract Address</Label>
-                    <Input 
-                      placeholder="0x..." 
-                      className="cyber-input"
-                      disabled={!isConnected}
+                {/* Contract Input */}
+                <ContractInputForm 
+                  onSubmit={handleAnalyzeContract}
+                  isLoading={isAnalyzing}
+                />
+
+                {/* Function Selection */}
+                {contractABI && contractFunctions.writeFunctions.length > 0 && (
+                  <div className="space-y-4">
+                    <FunctionSelector
+                      functions={contractFunctions.writeFunctions}
+                      onSelect={handleFunctionSelect}
+                      selectedFunction={selectedFunction}
                     />
+
+                    {/* Function Execution Form */}
+                    {selectedFunction && selectedFunctionDetails && (
+                      <FunctionForm
+                        functionSignature={selectedFunction}
+                        functionDetails={selectedFunctionDetails}
+                        onSubmit={handleFunctionExecute}
+                        isLoading={isExecuting}
+                        walletRequired={true}
+                        walletConnected={isConnected}
+                        contractAddress={contractAddress}
+                      />
+                    )}
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-cyber-text">Function</Label>
-                    <Input 
-                      placeholder="mint, transfer, etc." 
-                      className="cyber-input"
-                      disabled={!isConnected}
-                    />
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label className="text-cyber-text">Parameters (JSON)</Label>
-                  <Input 
-                    placeholder='{"to": "0x...", "amount": "1"}' 
-                    className="cyber-input"
-                    disabled={!isConnected}
-                  />
-                </div>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-cyber-text">Gas Limit</Label>
-                    <Input 
-                      placeholder="Auto" 
-                      className="cyber-input"
-                      disabled={!isConnected}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-cyber-text">Value (ETH)</Label>
-                    <Input 
-                      placeholder="0.0" 
-                      className="cyber-input"
-                      disabled={!isConnected}
-                    />
-                  </div>
-                </div>
-                
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <Button 
-                    onClick={addMockTransaction}
-                    disabled={!isConnected}
-                    className="cyber-button flex-1"
-                  >
-                    Execute Transaction
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    disabled={!isConnected}
-                    className="cyber-button-alt flex-1"
-                  >
-                    Simulate
-                  </Button>
-                </div>
-                
+                )}
+
+                {/* Connection Status */}
                 {!isConnected && (
                   <div className="text-center p-4 border border-dashed border-cyber-accent-purple/30 rounded-lg">
-                    <p className="text-cyber-text-muted">Connect your wallet to start interacting with contracts</p>
+                    <Key className="w-8 h-8 mx-auto mb-2 text-cyber-accent-purple" />
+                    <p className="text-cyber-text-muted">Connect your wallet with private key to start interacting with contracts</p>
                   </div>
                 )}
               </CardContent>
@@ -261,7 +294,7 @@ const Index = () => {
 
           {/* Transaction History */}
           <div className="lg:col-span-1">
-            <Card className="cyber-panel h-fit">
+            <Card className="cyber-panel">
               <CardHeader>
                 <CardTitle className="text-cyber-accent-purple">Transaction History</CardTitle>
                 <CardDescription className="text-cyber-text-muted">

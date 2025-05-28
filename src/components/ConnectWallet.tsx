@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect } from 'react';
-import { useAccount, useConnect, useDisconnect, useEnsName } from 'wagmi';
 import { Button } from '@/components/ui/button';
 import { shortenAddress } from '@/lib/contractUtils';
 import { Key, X, Shield } from 'lucide-react';
@@ -16,9 +15,6 @@ import {
 import PrivateKeyInput from './PrivateKeyInput';
 
 const ConnectWallet: React.FC = () => {
-  const { address, isConnected } = useAccount();
-  const { data: ensName } = useEnsName({ address });
-  const { disconnect } = useDisconnect();
   const [privateKeyDialogOpen, setPrivateKeyDialogOpen] = useState(false);
   const [privateKeyAddress, setPrivateKeyAddress] = useState<string | null>(null);
 
@@ -48,23 +44,17 @@ const ConnectWallet: React.FC = () => {
   };
 
   const handleDisconnect = () => {
-    if (isConnected) {
-      disconnect();
-    }
     setPrivateKeyAddress(null);
     window.location.reload(); // Simple way to reset the app state
   };
 
-  // Show connected state for either wallet or private key
-  if (isConnected || privateKeyAddress) {
-    const displayAddress = privateKeyAddress || address;
+  // Show connected state for private key
+  if (privateKeyAddress) {
     return (
       <div className="flex items-center gap-2">
-        <div className="px-3 py-1.5 rounded bg-cyber-dark border border-cyber-accent/30 text-sm font-mono flex items-center">
-          {privateKeyAddress && (
-            <Shield className="w-3 h-3 mr-1.5 text-cyber-accent" />
-          )}
-          <span className="text-cyber-text">{ensName || shortenAddress(displayAddress as string)}</span>
+        <div className="px-3 py-1.5 rounded bg-cyber-dark border border-cyber-accent-purple/30 text-sm font-mono flex items-center">
+          <Shield className="w-3 h-3 mr-1.5 text-cyber-accent-purple" />
+          <span className="text-cyber-text">{shortenAddress(privateKeyAddress)}</span>
         </div>
         <Button
           variant="outline"
