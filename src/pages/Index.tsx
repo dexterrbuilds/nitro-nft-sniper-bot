@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
-import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -12,6 +11,7 @@ import TransactionHistory, { Transaction } from '@/components/TransactionHistory
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { 
   fetchContractABI, 
   getContractFunctions, 
@@ -21,10 +21,12 @@ import {
 } from '@/lib/contractUtils';
 import { v4 as uuidv4 } from 'uuid';
 import { getEthersProvider } from '@/lib/web3Config';
-import { Info, LogOut, Shield } from 'lucide-react';
+import { Info, LogOut, Shield, Key, User } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import ScheduledTransactions from '@/components/ScheduledTransactions';
 import { scheduleTransaction, cancelScheduledTransaction } from '@/lib/timerUtils';
+import { supabase } from '@/integrations/supabase/client';
+import PrivateKeyInput from '@/components/PrivateKeyInput';
 
 // Define a more specific type that allows indexing by string
 type EthersContract = ethers.Contract & {
@@ -32,13 +34,17 @@ type EthersContract = ethers.Contract & {
 };
 
 const Index = () => {
-  const { isConnected, address } = useAccount();
-  const { data: walletClient } = useWalletClient();
-  const publicClient = usePublicClient();
   const navigate = useNavigate();
 
-  // User authentication state
-  const [userAuth, setUserAuth] = useState<{username: string, accessKey: string} | null>(null);
+  // Authentication state
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userAuth, setUserAuth] = useState<{username: string, accessKey: string, isAdmin?: boolean} | null>(null);
+  const [authStep, setAuthStep] = useState<'login' | 'private-key'>('login');
+  
+  // Login form state
+  const [accessKey, setAccessKey] = useState('');
+  const [username, setUsername] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   // Contract state
   const [contractAddress, setContractAddress] = useState<string>('');
@@ -49,7 +55,6 @@ const Index = () => {
   const [readFunctions, setReadFunctions] = useState<{name: string; inputs: any[]; outputs: any[]}[]>([]);
   
   // UI state
-  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isLoadingContract, setIsLoadingContract] = useState<boolean>(false);
   const [isExecuting, setIsExecuting] = useState<boolean>(false);
   
@@ -66,24 +71,126 @@ const Index = () => {
   // Check authentication on mount
   useEffect(() => {
     const storedAuth = localStorage.getItem('nitro_user');
-    if (!storedAuth) {
-      navigate('/auth');
+    if (storedAuth) {
+      try {
+        const authData = JSON.parse(storedAuth);
+        setUserAuth(authData);
+        setIsAuthenticated(true);
+        setAuthStep('private-key');
+      } catch (error) {
+        localStorage.removeItem('nitro_user');
+      }
+    }
+  }, []);
+
+  // Handle access key login
+  const handleAccessKeyLogin = async () => {
+    if (!accessKey.trim()) {
+      toast.error('Please enter an access key');
       return;
     }
 
+    setIsLoading(true);
     try {
-      const authData = JSON.parse(storedAuth);
-      setUserAuth(authData);
+      const { data, error } = await supabase
+        .from('access_keys')
+        .select('*')
+        .eq('key_value', accessKey.trim())
+        .single();
+
+      if (error || !data) {
+        toast.error('Invalid access key');
+        return;
+      }
+
+      if (data.status === 'revoked') {
+        toast.error('This access key has been revoked');
+        return;
+      }
+
+      // Check if this is an admin user
+      const isAdmin = data.username === 'admin_user';
+
+      if (data.status === 'activated' && data.username) {
+        // Already activated user
+        const authData = { 
+          username: data.username, 
+          accessKey: accessKey.trim(),
+          isAdmin 
+        };
+        setUserAuth(authData);
+        localStorage.setItem('nitro_user', JSON.stringify(authData));
+        setIsAuthenticated(true);
+        setAuthStep('private-key');
+        toast.success(`Welcome back, ${data.username}!`);
+      } else {
+        toast.error('Account not properly activated');
+      }
     } catch (error) {
-      localStorage.removeItem('nitro_user');
-      navigate('/auth');
+      console.error('Error validating access key:', error);
+      toast.error('Error validating access key');
+    } finally {
+      setIsLoading(false);
     }
-  }, [navigate]);
+  };
+
+  // Handle returning user login
+  const handleReturningUserLogin = async () => {
+    if (!username.trim() || !accessKey.trim()) {
+      toast.error('Please enter both username and access key');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('access_keys')
+        .select('*')
+        .eq('key_value', accessKey.trim())
+        .eq('username', username.trim())
+        .eq('status', 'activated')
+        .single();
+
+      if (error || !data) {
+        toast.error('Invalid username or access key combination');
+        return;
+      }
+
+      // Check if this is an admin user
+      const isAdmin = data.username === 'admin_user';
+
+      const authData = { 
+        username: data.username, 
+        accessKey: accessKey.trim(),
+        isAdmin 
+      };
+      setUserAuth(authData);
+      localStorage.setItem('nitro_user', JSON.stringify(authData));
+      setIsAuthenticated(true);
+      setAuthStep('private-key');
+      toast.success(`Welcome back, ${data.username}!`);
+    } catch (error) {
+      console.error('Error validating credentials:', error);
+      toast.error('Error validating credentials');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Handle logout
   const handleLogout = () => {
     localStorage.removeItem('nitro_user');
-    navigate('/auth');
+    setUserAuth(null);
+    setIsAuthenticated(false);
+    setAuthStep('login');
+    setPrivateKeySigner(null);
+    toast.success('Logged out successfully');
+  };
+
+  // Handle private key connection
+  const handlePrivateKeyConnect = async (address: string) => {
+    toast.success(`Wallet connected: ${shortenAddress(address)}`);
+    // The private key signer is set via the event listener in the useEffect
   };
 
   // Get contract from local storage on mount and set up storage listeners
@@ -619,11 +726,6 @@ const handleScheduleTransaction = useCallback((
   toast.success(`Transaction scheduled for ${new Date(scheduledTime).toLocaleTimeString()}`);
 }, [contract, selectedFunctionDetails, contractAddress, contractABI, privateKeySigner, chainId, setTransactions]);
 
-  // Handle private key connection - moved this functionality to ConnectWallet.tsx
-  const handlePrivateKeyConnect = (address: string) => {
-    toast.success(`Connected with address: ${shortenAddress(address)}`);
-  };
-
   // Get network name for display
   const getNetworkName = (id: number) => {
     switch (id) {
@@ -633,18 +735,154 @@ const handleScheduleTransaction = useCallback((
     }
   };
 
-  // Show loading or redirect if not authenticated
-  if (!userAuth) {
-    return null; // The useEffect will handle the redirect
+  // Show authentication screen if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-cyber-darker flex items-center justify-center p-4">
+        <div className="w-full max-w-md space-y-6">
+          {/* Header */}
+          <div className="text-center space-y-2">
+            <div className="flex items-center justify-center space-x-2">
+              <Shield className="w-8 h-8 text-cyber-accent" />
+              <h1 className="text-3xl font-bold cyber-glow-text">NITRO ACCESS</h1>
+            </div>
+            <p className="text-cyber-text-muted">Secure NFT Sniper Platform</p>
+          </div>
+
+          <Card className="cyber-panel">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2 text-cyber-text">
+                <Key className="w-5 h-5 text-cyber-accent" />
+                <span>Access Required</span>
+              </CardTitle>
+              <CardDescription className="text-cyber-text-muted">
+                Enter your credentials to continue
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Tabs defaultValue="access-key" className="space-y-4">
+                <TabsList className="grid grid-cols-2 bg-cyber-dark border border-cyber-accent/30">
+                  <TabsTrigger value="access-key" className="font-mono">New Access</TabsTrigger>
+                  <TabsTrigger value="returning" className="font-mono">Returning User</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="access-key" className="space-y-4">
+                  <Input
+                    type="text"
+                    placeholder="Access Key (e.g., NK-ADMIN1234TESTKEY567)"
+                    value={accessKey}
+                    onChange={(e) => setAccessKey(e.target.value)}
+                    className="cyber-input font-mono"
+                  />
+                  <Button 
+                    onClick={handleAccessKeyLogin}
+                    disabled={isLoading}
+                    className="w-full cyber-button"
+                  >
+                    {isLoading ? 'Validating...' : 'Access Platform'}
+                  </Button>
+                </TabsContent>
+                
+                <TabsContent value="returning" className="space-y-4">
+                  <Input
+                    type="text"
+                    placeholder="Username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="cyber-input"
+                  />
+                  <Input
+                    type="password"
+                    placeholder="Access Key"
+                    value={accessKey}
+                    onChange={(e) => setAccessKey(e.target.value)}
+                    className="cyber-input font-mono"
+                  />
+                  <Button 
+                    onClick={handleReturningUserLogin}
+                    disabled={isLoading}
+                    className="w-full cyber-button"
+                  >
+                    {isLoading ? 'Logging in...' : 'Login'}
+                  </Button>
+                </TabsContent>
+              </Tabs>
+              
+              <div className="mt-4 p-3 bg-cyber-dark/50 rounded border border-cyber-accent/20">
+                <p className="text-xs text-cyber-text-muted">
+                  <strong>Test Credentials:</strong><br/>
+                  Admin: NK-ADMIN1234TESTKEY567<br/>
+                  User: NK-USER9876TESTKEY543 (username: test_user)
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
   }
 
+  // Show private key connection if authenticated but no wallet
+  if (authStep === 'private-key' && !privateKeySigner) {
+    return (
+      <div className="min-h-screen bg-cyber-darker flex items-center justify-center p-4">
+        <div className="w-full max-w-md space-y-6">
+          <div className="text-center space-y-2">
+            <div className="flex items-center justify-center space-x-2">
+              <Shield className="w-8 h-8 text-cyber-accent" />
+              <h1 className="text-3xl font-bold cyber-glow-text">WALLET CONNECTION</h1>
+            </div>
+            <p className="text-cyber-text-muted">Welcome, {userAuth?.username}</p>
+          </div>
+
+          <Card className="cyber-panel">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2 text-cyber-text">
+                <Key className="w-5 h-5 text-cyber-secondary" />
+                <span>Connect Wallet</span>
+              </CardTitle>
+              <CardDescription className="text-cyber-text-muted">
+                Enter your private key to execute transactions
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <PrivateKeyInput onConnect={handlePrivateKeyConnect} />
+              <Button 
+                onClick={handleLogout}
+                variant="outline"
+                className="w-full mt-4 cyber-button-alt"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Logout
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // Main application interface
   return (
     <Layout>
       <div className="absolute top-4 right-4 z-50 flex items-center space-x-3">
         <div className="flex items-center space-x-2 px-3 py-1.5 rounded bg-cyber-dark border border-cyber-accent/30 text-sm">
           <Shield className="w-4 h-4 text-cyber-accent" />
-          <span className="text-cyber-text font-mono">{userAuth.username}</span>
+          <span className="text-cyber-text font-mono">{userAuth?.username}</span>
+          {userAuth?.isAdmin && (
+            <span className="px-2 py-0.5 bg-cyber-secondary text-cyber-dark text-xs rounded font-bold">ADMIN</span>
+          )}
         </div>
+        {userAuth?.isAdmin && (
+          <Button 
+            onClick={() => navigate('/admin')}
+            variant="outline"
+            className="cyber-button-alt"
+          >
+            <Shield className="w-4 h-4 mr-2" />
+            Admin Panel
+          </Button>
+        )}
         <Button 
           onClick={handleLogout}
           variant="outline"

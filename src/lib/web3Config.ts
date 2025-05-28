@@ -1,32 +1,5 @@
 
-
-import { createConfig, configureChains } from 'wagmi'
-import { mainnet, sepolia } from 'wagmi/chains'
-import { jsonRpcProvider } from 'wagmi/providers/jsonRpc'
 import { ethers } from 'ethers'
-
-// Configure chains with providers for Wagmi v1
-const { chains, publicClient, webSocketPublicClient } = configureChains(
-  [mainnet, sepolia],
-  [
-    jsonRpcProvider({
-      rpc: (chain) => {
-        if (chain.id === mainnet.id) {
-          return { http: 'https://eth.llamarpc.com' }
-        }
-        if (chain.id === sepolia.id) {
-          return { http: 'https://rpc.sepolia.org' }
-        }
-        return null
-      },
-    }),
-  ]
-)
-
-export const wagmiConfig = createConfig({
-  publicClient,
-  webSocketPublicClient,
-})
 
 // Chain options for the UI
 export const chainOptions = [
@@ -34,7 +7,7 @@ export const chainOptions = [
   { id: 5, name: 'Goerli Testnet', symbol: 'ETH' },
   { id: 11155111, name: 'Sepolia Testnet', symbol: 'ETH' },
   { id: 137, name: 'Polygon Mainnet', symbol: 'MATIC' },
-  { id: 80001, name: 'Mumbai Testnet', symbol: 'MATIC' },
+  { id: 80001, name:'Mumbai Testnet', symbol: 'MATIC' },
   { id: 42161, name: 'Arbitrum One', symbol: 'ETH' },
   { id: 10, name: 'Optimism', symbol: 'ETH' },
   { id: 56, name: 'BSC Mainnet', symbol: 'BNB' },
@@ -106,4 +79,3 @@ export const connectWithPrivateKey = async (privateKey: string): Promise<ethers.
 export const getPrivateKeySigner = (): ethers.Signer | null => {
   return privateKeySigner;
 };
-
