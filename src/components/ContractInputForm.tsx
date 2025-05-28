@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { useAccount, useNetwork } from 'wagmi';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,8 +15,10 @@ interface ContractInputFormProps {
 }
 
 const ContractInputForm: React.FC<ContractInputFormProps> = ({ onSubmit, isLoading }) => {
+  const { isConnected } = useAccount();
+  const { chain } = useNetwork();
   const [contractAddress, setContractAddress] = useState('');
-  const [selectedChainId, setSelectedChainId] = useState<number>(1); // Default to Ethereum mainnet
+  const [selectedChainId, setSelectedChainId] = useState<number>(chain?.id || 1);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
