@@ -1,1032 +1,302 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { ethers } from 'ethers';
-import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
-import Layout from '@/components/Layout';
-import ContractInputForm from '@/components/ContractInputForm';
-import FunctionSelector from '@/components/FunctionSelector';
-import FunctionForm from '@/components/FunctionForm';
-import TransactionHistory, { Transaction } from '@/components/TransactionHistory';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { 
-  fetchContractABI, 
-  getContractFunctions, 
-  parseEth, 
-  shortenAddress, 
-  getFullFunctionSignature 
-} from '@/lib/contractUtils';
-import { v4 as uuidv4 } from 'uuid';
-import { getEthersProvider } from '@/lib/web3Config';
-import { Info, LogOut, Shield, Key, User } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import ScheduledTransactions from '@/components/ScheduledTransactions';
-import { scheduleTransaction, cancelScheduledTransaction } from '@/lib/timerUtils';
-import { supabase } from '@/integrations/supabase/client';
-import PrivateKeyInput from '@/components/PrivateKeyInput';
-
-// Define a more specific type that allows indexing by string
-type EthersContract = ethers.Contract & {
-  [key: string]: any;
-};
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Label } from '@/components/ui/label';
+import AdminDashboard from '@/components/AdminDashboard';
 
 const Index = () => {
   const navigate = useNavigate();
-
-  // Authentication state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userAuth, setUserAuth] = useState<{username: string, accessKey: string, isAdmin?: boolean} | null>(null);
-  const [authStep, setAuthStep] = useState<'login' | 'private-key'>('login');
-  
-  // Login form state
-  const [accessKey, setAccessKey] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [username, setUsername] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [accessKey, setAccessKey] = useState('');
+  const [activeTab, setActiveTab] = useState('new');
 
-  // Contract state
-  const [contractAddress, setContractAddress] = useState<string>('');
-  const [chainId, setChainId] = useState<number>(8453); // Default to Base Chain
-  const [contractABI, setContractABI] = useState<any[] | null>(null);
-  const [contract, setContract] = useState<EthersContract | null>(null);
-  const [writeFunctions, setWriteFunctions] = useState<{name: string; inputs: any[]; payable: boolean}[]>([]);
-  const [readFunctions, setReadFunctions] = useState<{name: string; inputs: any[]; outputs: any[]}[]>([]);
-  
-  // UI state
-  const [isLoadingContract, setIsLoadingContract] = useState<boolean>(false);
-  const [isExecuting, setIsExecuting] = useState<boolean>(false);
-  
-  // The selectedFunction is now the full function signature, not just the name
-  const [selectedFunction, setSelectedFunction] = useState<string | null>(null);
-  const [selectedFunctionDetails, setSelectedFunctionDetails] = useState<any>(null);
-  
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [contractName, setContractName] = useState<string | null>(null);
-  
-  // Add state for private key connected signer
-  const [privateKeySigner, setPrivateKeySigner] = useState<ethers.Signer | null>(null);
-  
-  // Check authentication on mount
+  // Check if user is already authenticated
   useEffect(() => {
-    const storedAuth = localStorage.getItem('nitro_user');
-    if (storedAuth) {
-      try {
-        const authData = JSON.parse(storedAuth);
-        setUserAuth(authData);
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
         setIsAuthenticated(true);
-        setAuthStep('private-key');
-      } catch (error) {
-        localStorage.removeItem('nitro_user');
+        // Check if user is admin
+        const { data: adminData } = await supabase
+          .from('admin_users')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .single();
+        
+        if (adminData) {
+          setIsAdmin(true);
+        }
       }
-    }
+    };
+    checkAuth();
   }, []);
 
-  // Handle access key login
-  const handleAccessKeyLogin = async () => {
+  const handleNewUserAuth = async () => {
     if (!accessKey.trim()) {
       toast.error('Please enter an access key');
       return;
     }
 
-    setIsLoading(true);
+    setLoading(true);
     try {
-      const { data, error } = await supabase
+      // Check if access key exists and is valid
+      const { data: keyData, error: keyError } = await supabase
         .from('access_keys')
         .select('*')
-        .eq('key_value', accessKey.trim())
+        .eq('key_value', accessKey)
+        .eq('status', 'activated')
         .single();
 
-      if (error || !data) {
-        toast.error('Invalid access key');
+      if (keyError || !keyData) {
+        toast.error('Invalid or inactive access key');
+        setLoading(false);
         return;
       }
 
-      if (data.status === 'revoked') {
-        toast.error('This access key has been revoked');
+      // Create a dummy email for Supabase auth using the access key
+      const email = `${accessKey}@nftsniper.local`;
+      
+      // Try to sign up or sign in
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password: accessKey,
+      });
+
+      if (authError && authError.message.includes('already registered')) {
+        // User exists, try to sign in
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password: accessKey,
+        });
+
+        if (signInError) {
+          toast.error('Authentication failed');
+          setLoading(false);
+          return;
+        }
+      } else if (authError) {
+        toast.error('Authentication failed');
+        setLoading(false);
         return;
       }
 
-      // Check if this is an admin user
-      const isAdmin = data.username === 'admin_user';
-
-      if (data.status === 'activated' && data.username) {
-        // Already activated user
-        const authData = { 
-          username: data.username, 
-          accessKey: accessKey.trim(),
-          isAdmin 
-        };
-        setUserAuth(authData);
-        localStorage.setItem('nitro_user', JSON.stringify(authData));
-        setIsAuthenticated(true);
-        setAuthStep('private-key');
-        toast.success(`Welcome back, ${data.username}!`);
-      } else {
-        toast.error('Account not properly activated');
+      // Check if this user should be admin
+      if (keyData.username === 'admin_user') {
+        setIsAdmin(true);
       }
+
+      setIsAuthenticated(true);
+      toast.success('Authentication successful!');
     } catch (error) {
-      console.error('Error validating access key:', error);
-      toast.error('Error validating access key');
+      console.error('Auth error:', error);
+      toast.error('Authentication failed');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  // Handle returning user login
-  const handleReturningUserLogin = async () => {
+  const handleReturningUserAuth = async () => {
     if (!username.trim() || !accessKey.trim()) {
       toast.error('Please enter both username and access key');
       return;
     }
 
-    setIsLoading(true);
+    setLoading(true);
     try {
-      const { data, error } = await supabase
+      // Check if access key matches username
+      const { data: keyData, error: keyError } = await supabase
         .from('access_keys')
         .select('*')
-        .eq('key_value', accessKey.trim())
-        .eq('username', username.trim())
+        .eq('key_value', accessKey)
+        .eq('username', username)
         .eq('status', 'activated')
         .single();
 
-      if (error || !data) {
-        toast.error('Invalid username or access key combination');
+      if (keyError || !keyData) {
+        toast.error('Invalid username or access key');
+        setLoading(false);
         return;
       }
 
-      // Check if this is an admin user
-      const isAdmin = data.username === 'admin_user';
+      // Sign in using the access key
+      const email = `${accessKey}@nftsniper.local`;
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password: accessKey,
+      });
 
-      const authData = { 
-        username: data.username, 
-        accessKey: accessKey.trim(),
-        isAdmin 
-      };
-      setUserAuth(authData);
-      localStorage.setItem('nitro_user', JSON.stringify(authData));
+      if (signInError) {
+        toast.error('Authentication failed');
+        setLoading(false);
+        return;
+      }
+
+      // Check if this user should be admin
+      if (keyData.username === 'admin_user') {
+        setIsAdmin(true);
+      }
+
       setIsAuthenticated(true);
-      setAuthStep('private-key');
-      toast.success(`Welcome back, ${data.username}!`);
+      toast.success('Welcome back!');
     } catch (error) {
-      console.error('Error validating credentials:', error);
-      toast.error('Error validating credentials');
+      console.error('Auth error:', error);
+      toast.error('Authentication failed');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  // Handle logout
-  const handleLogout = () => {
-    localStorage.removeItem('nitro_user');
-    setUserAuth(null);
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setIsAuthenticated(false);
-    setAuthStep('login');
-    setPrivateKeySigner(null);
+    setIsAdmin(false);
+    setUsername('');
+    setAccessKey('');
+    setActiveTab('new');
     toast.success('Logged out successfully');
   };
 
-  // Handle private key connection
-  const handlePrivateKeyConnect = async (address: string) => {
-    toast.success(`Wallet connected: ${shortenAddress(address)}`);
-    // The private key signer is set via the event listener in the useEffect
-  };
-
-  // Get contract from local storage on mount and set up storage listeners
-  useEffect(() => {
-    const storedTransactions = localStorage.getItem('nitro-nft-transactions');
-    if (storedTransactions) {
-      try {
-        setTransactions(JSON.parse(storedTransactions));
-      } catch (e) {
-        console.error('Failed to parse stored transactions');
-      }
+  if (isAuthenticated) {
+    if (isAdmin) {
+      return <AdminDashboard onLogout={handleLogout} />;
     }
     
-    // Try to load the last contract if available
-    const lastContract = localStorage.getItem('nitro-nft-last-contract');
-    if (lastContract) {
-      try {
-        const { address, chainId } = JSON.parse(lastContract);
-        if (address && chainId) {
-          console.log('Loading last used contract:', address, 'on chain', chainId);
-          handleLoadContract(address, chainId);
-        }
-      } catch (e) {
-        console.error('Failed to load last contract', e);
-      }
-    }
-    
-    // Set up an event listener for privateKeySigner updates from web3Config
-    window.addEventListener('privateKeyConnected', ((event: CustomEvent) => {
-      console.log('Private key connected event received');
-      if (event.detail && event.detail.signer) {
-        setPrivateKeySigner(event.detail.signer);
-      }
-    }) as EventListener);
-    
-    return () => {
-      // Remove event listener
-      window.removeEventListener('privateKeyConnected', (() => {}) as EventListener);
-      
-      // Clean up scheduled transactions when component unmounts
-      import('@/lib/timerUtils').then(({ clearAllScheduledTransactions }) => {
-        clearAllScheduledTransactions();
-      });
-    };
-  }, []);
-  
-  // Save transactions to local storage when they change
-  useEffect(() => {
-    localStorage.setItem('nitro-nft-transactions', JSON.stringify(transactions));
-  }, [transactions]);
-
-  // Handle loading contract data
-  const handleLoadContract = useCallback(async (address: string, chain: number) => {
-    setIsLoadingContract(true);
-    
-    try {
-      // Reset state first
-      setContractABI(null);
-      setContract(null);
-      setWriteFunctions([]);
-      setReadFunctions([]);
-      setSelectedFunction(null);
-      setSelectedFunctionDetails(null);
-      
-      console.log(`Loading contract ${address} on chain ${chain}`);
-      
-      // Update chain ID first, so we use the right RPC for fetching
-      setChainId(chain);
-      
-      const abi = await fetchContractABI(address, chain);
-      
-      if (!abi) {
-        throw new Error('Failed to fetch contract ABI');
-      }
-      
-      // Create a read-only provider for the selected chain
-      const provider = getEthersProvider(chain);
-      
-      // Create contract instance with read-only provider
-      const contractInstance = new ethers.Contract(address, abi, provider) as EthersContract;
-      
-      // Try to fetch contract name with multiple fallback methods
-      let name = null;
-      try {
-        // Try standard name() function
-        name = await contractInstance.name();
-        console.log('Contract name from name():', name);
-      } catch (e) {
-        console.log('Could not fetch name via name()');
-        
-        // Try alternative NAME() function (some contracts use uppercase)
-        try {
-          name = await contractInstance.NAME();
-          console.log('Contract name from NAME():', name);
-        } catch (e) {
-          console.log('Could not fetch name via NAME()');
-          
-          // Try symbol as fallback
-          try {
-            const symbol = await contractInstance.symbol();
-            name = `${symbol} Token`;
-            console.log('Using symbol as fallback:', name);
-          } catch (e) {
-            console.log('Could not fetch symbol');
-            
-            // Last resort: check if there's a standard ERC721 interface
-            try {
-              const supportsERC721 = await contractInstance.supportsInterface('0x80ac58cd');
-              if (supportsERC721) {
-                name = 'ERC721 NFT Collection';
-              } else {
-                // Generic name based on chain
-                name = chain === 8453 ? 'Base Contract' : 
-                      chain === 16384 ? 'Ape Chain Contract' : 
-                      'Smart Contract';
-              }
-            } catch (e) {
-              console.log('Could not check ERC721 support');
-              // Give up and use generic name
-              name = chain === 8453 ? 'Base Contract' : 
-                    chain === 16384 ? 'Ape Chain Contract' : 
-                    'Smart Contract';
-            }
-          }
-        }
-      }
-      
-      // Extract functions from ABI
-      const { writeFunctions, readFunctions } = getContractFunctions(abi);
-      console.log('Write functions:', writeFunctions);
-      console.log('Read functions:', readFunctions);
-      
-      setContractAddress(address);
-      setContractABI(abi);
-      setContract(contractInstance);
-      setWriteFunctions(writeFunctions);
-      setReadFunctions(readFunctions);
-      setContractName(name);
-      
-      // Save to local storage
-      localStorage.setItem('nitro-nft-last-contract', JSON.stringify({ address, chainId: chain }));
-      
-      toast.success(`Contract loaded: ${name || 'Smart Contract'}`);
-    } catch (error: any) {
-      console.error('Error loading contract:', error);
-      toast.error(`Failed to load contract: ${error.message || 'Unknown error'}`);
-      
-      // Clear contract-related state
-      setContract(null);
-      setWriteFunctions([]);
-      setReadFunctions([]);
-    } finally {
-      setIsLoadingContract(false);
-    }
-  }, []);
-
-  // This function is now called with signature and details
-  const handleSelectFunction = (signature: string, details: any) => {
-    console.log("Selected function:", signature, details);
-    setSelectedFunction(signature);
-    setSelectedFunctionDetails(details);
-  };
-
-  const handleExecuteFunction = useCallback(async (signature: string, args: any[], ethValue: string) => {
-    if (!contract || !signature || !selectedFunctionDetails) {
-      toast.error('Contract not loaded or function not selected');
-      return;
-    }
-    
-    // Check if we have a private key signer
-    const hasValidSigner = privateKeySigner !== null;
-    
-    if (!hasValidSigner) {
-      toast.error('Please connect using a private key to execute transactions');
-      return;
-    }
-    
-    setIsExecuting(true);
-    
-    // Create a transaction record
-    const txId = uuidv4();
-    const newTx: Transaction = {
-      id: txId,
-      hash: '',
-      functionName: selectedFunctionDetails.name,
-      contractAddress: contractAddress,
-      value: ethValue,
-      status: 'pending',
-      timestamp: Date.now(),
-    };
-    
-    // Add to transaction history
-    setTransactions(prev => [newTx, ...prev]);
-    
-    try {
-      // Convert parameters to the right types
-      const processedArgs = args.map((arg, index) => {
-        const paramType = selectedFunctionDetails.inputs[index].type;
-        
-        // Specific type conversions
-        if (paramType.startsWith('uint') || paramType.startsWith('int')) {
-          return BigInt(arg);
-        }
-        
-        return arg;
-      });
-      
-      // Get a provider for the current chain
-      const targetProvider = getEthersProvider(chainId);
-      
-      // Connect private key signer to the target chain
-      const targetSigner = privateKeySigner.connect(targetProvider);
-      
-      // Create a new contract instance with the signer
-      const executionContract = new ethers.Contract(
-        contractAddress,
-        contractABI,
-        targetSigner
-      ) as EthersContract;
-      
-      // Parse ETH value properly
-      let value = BigInt(0);
-      if (selectedFunctionDetails.payable && ethValue) {
-        try {
-          value = parseEth(ethValue);
-          console.log(`Transaction value: ${ethValue} ETH (${value} wei)`);
-        } catch (error) {
-          console.error('Error parsing ETH value:', error);
-          toast.error('Invalid ETH amount');
-          setIsExecuting(false);
-          
-          // Update transaction status
-          setTransactions(prev => 
-            prev.map(t => 
-              t.id === txId 
-                ? { ...t, status: 'error', error: 'Invalid ETH amount' } 
-                : t
-            )
-          );
-          
-          return;
-        }
-      }
-      
-      // Get current gas price from the network
-      const feeData = await targetProvider.getFeeData();
-      
-      // Set reasonable gas parameters
-      const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas ? 
-        feeData.maxPriorityFeePerGas : 
-        ethers.parseUnits("1.5", "gwei");
-      
-      const maxFeePerGas = feeData.maxFeePerGas ?
-        feeData.maxFeePerGas :
-        maxPriorityFeePerGas + ethers.parseUnits("2", "gwei");
-      
-      // Prepare transaction options with explicit gas parameters
-      const options = {
-        value: value,
-        maxPriorityFeePerGas: maxPriorityFeePerGas,
-        maxFeePerGas: maxFeePerGas,
-        gasLimit: 500000, // Increased gas limit for better compatibility
-      };
-      
-      // Log transaction details for debugging
-      console.log('Sending transaction:', {
-        function: signature,
-        args: processedArgs,
-        value: ethers.formatEther(value) + ' ETH',
-        maxPriorityFeePerGas: ethers.formatUnits(maxPriorityFeePerGas, "gwei") + ' gwei',
-        maxFeePerGas: ethers.formatUnits(maxFeePerGas, "gwei") + ' gwei',
-        chainId: chainId,
-        network: chainId === 8453 ? 'Base' : chainId === 16384 ? 'Ape Chain' : 'Custom Network'
-      });
-      
-      // Confirm with user if the value is high
-      if (value > parseEth("1.0")) {
-        if (!window.confirm(`You are about to send ${ethers.formatEther(value)} ETH. Are you sure?`)) {
-          toast.info('Transaction cancelled by user');
-          setIsExecuting(false);
-          
-          // Update transaction status
-          setTransactions(prev => 
-            prev.map(t => 
-              t.id === txId 
-                ? { ...t, status: 'cancelled' } 
-                : t
-            )
-          );
-          
-          return;
-        }
-      }
-      
-      // Send transaction using the SIGNATURE as the key instead of just the function name
-      const tx = await executionContract[signature](...processedArgs, options);
-      
-      // Update transaction record with hash
-      setTransactions(prev => 
-        prev.map(t => 
-          t.id === txId 
-            ? { ...t, hash: tx.hash, status: 'pending' } 
-            : t
-        )
-      );
-      
-      toast.success(`Transaction sent: ${tx.hash}`);
-      
-      // Wait for confirmation (but don't freeze the UI)
-      toast.info('Waiting for transaction confirmation...');
-      
-      // We use the await but in a non-blocking way
-      tx.wait().then((receipt: any) => {
-        // Update transaction status
-        setTransactions(prev => 
-          prev.map(t => 
-            t.id === txId 
-              ? { ...t, status: 'success' } 
-              : t
-          )
-        );
-        
-        const networkName = chainId === 8453 ? 'Base' : 
-                           chainId === 16384 ? 'Ape Chain' : 
-                           'Network';
-        
-        toast.success(`Transaction confirmed on ${networkName}!`);
-      }).catch((error: any) => {
-        console.error('Transaction confirmation error:', error);
-        
-        // Update transaction status
-        setTransactions(prev => 
-          prev.map(t => 
-            t.id === txId 
-              ? { ...t, status: 'error' } 
-              : t
-            )
-        );
-        
-        toast.error(`Transaction failed during confirmation`);
-      });
-    } catch (error: any) {
-      console.error('Transaction error:', error);
-      
-      // Update transaction status
-      setTransactions(prev => 
-        prev.map(t => 
-          t.id === txId 
-            ? { ...t, status: 'error', error: error.message } 
-            : t
-        )
-      );
-      
-      toast.error(`Transaction failed: ${error.message || 'Unknown error'}`);
-    } finally {
-      setIsExecuting(false);
-    }
-  }, [contract, contractAddress, contractABI, selectedFunctionDetails, privateKeySigner, chainId]);
-
-  // Schedule a transaction for later execution
-const handleScheduleTransaction = useCallback((
-  id: string, 
-  scheduledTime: number, 
-  signature: string,
-  args: any[], 
-  value: string
-) => {
-  if (!contract || !signature || !selectedFunctionDetails || !privateKeySigner) {
-    toast.error('Contract not loaded, function not selected, or wallet not connected');
-    return;
-  }
-  
-  // Create a callback function to execute at the scheduled time
-  const executionCallback = async () => {
-    // Create a transaction record
-    const txId = id; // Use the same ID that was generated for scheduling
-    const newTx: Transaction = {
-      id: txId,
-      hash: '',
-      functionName: selectedFunctionDetails.name,
-      contractAddress: contractAddress,
-      value: value,
-      status: 'pending',
-      timestamp: Date.now(),
-    };
-    
-    // Add to transaction history
-    setTransactions(prev => [newTx, ...prev]);
-    
-    try {
-      // Convert parameters to the right types
-      const processedArgs = args.map((arg, index) => {
-        const paramType = selectedFunctionDetails.inputs[index].type;
-        
-        // Specific type conversions
-        if (paramType.startsWith('uint') || paramType.startsWith('int')) {
-          return BigInt(arg);
-        }
-        
-        return arg;
-      });
-      
-      // Get a provider for the current chain
-      const targetProvider = getEthersProvider(chainId);
-      
-      // Connect private key signer to the target chain
-      const targetSigner = privateKeySigner.connect(targetProvider);
-      
-      // Create a new contract instance with the signer
-      const executionContract = new ethers.Contract(
-        contractAddress,
-        contractABI,
-        targetSigner
-      ) as EthersContract;
-      
-      // Parse ETH value properly
-      let valueAmount = BigInt(0);
-      if (selectedFunctionDetails.payable && value) {
-        try {
-          valueAmount = parseEth(value);
-          console.log(`Scheduled transaction value: ${value} ETH (${valueAmount} wei)`);
-        } catch (error) {
-          console.error('Error parsing ETH value:', error);
-          toast.error('Invalid ETH amount');
-          
-          // Update transaction status
-          setTransactions(prev => 
-            prev.map(t => 
-              t.id === txId 
-                ? { ...t, status: 'error', error: 'Invalid ETH amount' } 
-                : t
-            )
-          );
-          
-          return Promise.reject(new Error('Invalid ETH amount'));
-        }
-      }
-      
-      // Get current gas price from the network
-      const feeData = await targetProvider.getFeeData();
-      
-      // Set reasonable gas parameters
-      const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas ? 
-        feeData.maxPriorityFeePerGas : 
-        ethers.parseUnits("1.5", "gwei");
-      
-      const maxFeePerGas = feeData.maxFeePerGas ?
-        feeData.maxFeePerGas :
-        maxPriorityFeePerGas + ethers.parseUnits("2", "gwei");
-      
-      // Prepare transaction options with explicit gas parameters
-      const options = {
-        value: valueAmount,
-        maxPriorityFeePerGas: maxPriorityFeePerGas,
-        maxFeePerGas: maxFeePerGas,
-        gasLimit: 500000, // Increased gas limit for better compatibility
-      };
-      
-      // Log transaction details for debugging
-      console.log('Executing scheduled transaction:', {
-        function: signature,
-        args: processedArgs,
-        value: ethers.formatEther(valueAmount) + ' ETH',
-        maxPriorityFeePerGas: ethers.formatUnits(maxPriorityFeePerGas, "gwei") + ' gwei',
-        maxFeePerGas: ethers.formatUnits(maxFeePerGas, "gwei") + ' gwei',
-        chainId: chainId,
-        network: chainId === 8453 ? 'Base' : chainId === 16384 ? 'Ape Chain' : 'Custom Network'
-      });
-      
-      toast.info(`Executing scheduled transaction: ${selectedFunctionDetails.name}`);
-      
-      // Send transaction using the SIGNATURE as the key instead of just the function name
-      const tx = await executionContract[signature](...processedArgs, options);
-      
-      // Update transaction record with hash
-      setTransactions(prev => 
-        prev.map(t => 
-          t.id === txId 
-            ? { ...t, hash: tx.hash, status: 'pending' } 
-            : t
-        )
-      );
-      
-      toast.success(`Scheduled transaction sent: ${tx.hash}`);
-      
-      // Wait for confirmation
-      const receipt = await tx.wait();
-      
-      // Update transaction status
-      setTransactions(prev => 
-        prev.map(t => 
-          t.id === txId 
-            ? { ...t, status: 'success' } 
-            : t
-        )
-      );
-      
-      const networkName = chainId === 8453 ? 'Base' : 
-                         chainId === 16384 ? 'Ape Chain' : 
-                         'Network';
-      
-      toast.success(`Scheduled transaction confirmed on ${networkName}!`);
-      
-      return Promise.resolve();
-    } catch (error: any) {
-      console.error('Scheduled transaction error:', error);
-      
-      // Update transaction status
-      setTransactions(prev => 
-        prev.map(t => 
-          t.id === txId 
-            ? { ...t, status: 'error', error: error.message } 
-            : t
-        )
-      );
-      
-      toast.error(`Scheduled transaction failed: ${error.message || 'Unknown error'}`);
-      return Promise.reject(error);
-    }
-  };
-  
-  // Schedule the transaction
-  scheduleTransaction({
-    id,
-    functionName: selectedFunctionDetails.name,
-    contractAddress: contractAddress,
-    args,
-    value,
-    scheduledTime,
-    executionCallback
-  });
-  
-  toast.success(`Transaction scheduled for ${new Date(scheduledTime).toLocaleTimeString()}`);
-}, [contract, selectedFunctionDetails, contractAddress, contractABI, privateKeySigner, chainId, setTransactions]);
-
-  // Get network name for display
-  const getNetworkName = (id: number) => {
-    switch (id) {
-      case 8453: return 'Base Chain';
-      case 16384: return 'Ape Chain';
-      default: return 'Network ' + id;
-    }
-  };
-
-  // Show authentication screen if not authenticated
-  if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-cyber-darker flex items-center justify-center p-4">
-        <div className="w-full max-w-md space-y-6">
-          {/* Header */}
-          <div className="text-center space-y-2">
-            <div className="flex items-center justify-center space-x-2">
-              <Shield className="w-8 h-8 text-cyber-accent" />
-              <h1 className="text-3xl font-bold cyber-glow-text">NITRO ACCESS</h1>
-            </div>
-            <p className="text-cyber-text-muted">Secure NFT Sniper Platform</p>
-          </div>
-
-          <Card className="cyber-panel">
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2 text-cyber-text">
-                <Key className="w-5 h-5 text-cyber-accent" />
-                <span>Access Required</span>
-              </CardTitle>
-              <CardDescription className="text-cyber-text-muted">
-                Enter your credentials to continue
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Tabs defaultValue="access-key" className="space-y-4">
-                <TabsList className="grid grid-cols-2 bg-cyber-dark border border-cyber-accent/30">
-                  <TabsTrigger value="access-key" className="font-mono">New Access</TabsTrigger>
-                  <TabsTrigger value="returning" className="font-mono">Returning User</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="access-key" className="space-y-4">
-                  <Input
-                    type="text"
-                    placeholder="Access Key (e.g., NK-ADMIN1234TESTKEY567)"
-                    value={accessKey}
-                    onChange={(e) => setAccessKey(e.target.value)}
-                    className="cyber-input font-mono"
-                  />
-                  <Button 
-                    onClick={handleAccessKeyLogin}
-                    disabled={isLoading}
-                    className="w-full cyber-button"
-                  >
-                    {isLoading ? 'Validating...' : 'Access Platform'}
-                  </Button>
-                </TabsContent>
-                
-                <TabsContent value="returning" className="space-y-4">
-                  <Input
-                    type="text"
-                    placeholder="Username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    className="cyber-input"
-                  />
-                  <Input
-                    type="password"
-                    placeholder="Access Key"
-                    value={accessKey}
-                    onChange={(e) => setAccessKey(e.target.value)}
-                    className="cyber-input font-mono"
-                  />
-                  <Button 
-                    onClick={handleReturningUserLogin}
-                    disabled={isLoading}
-                    className="w-full cyber-button"
-                  >
-                    {isLoading ? 'Logging in...' : 'Login'}
-                  </Button>
-                </TabsContent>
-              </Tabs>
-              
-              <div className="mt-4 p-3 bg-cyber-dark/50 rounded border border-cyber-accent/20">
-                <p className="text-xs text-cyber-text-muted">
-                  <strong>Test Credentials:</strong><br/>
-                  Admin: NK-ADMIN1234TESTKEY567<br/>
-                  User: NK-USER9876TESTKEY543 (username: test_user)
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md bg-black/80 border-purple-500/30 text-white">
+          <CardHeader className="text-center">
+            <CardTitle className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+              NFT Sniper Dashboard
+            </CardTitle>
+            <CardDescription className="text-gray-300">
+              Welcome to your NFT sniping dashboard
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button 
+              onClick={() => navigate('/admin')} 
+              className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+            >
+              Go to Sniper Bot
+            </Button>
+            <Button 
+              onClick={handleLogout} 
+              variant="outline" 
+              className="w-full border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
+            >
+              Logout
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
-  // Show private key connection if authenticated but no wallet
-  if (authStep === 'private-key' && !privateKeySigner) {
-    return (
-      <div className="min-h-screen bg-cyber-darker flex items-center justify-center p-4">
-        <div className="w-full max-w-md space-y-6">
-          <div className="text-center space-y-2">
-            <div className="flex items-center justify-center space-x-2">
-              <Shield className="w-8 h-8 text-cyber-accent" />
-              <h1 className="text-3xl font-bold cyber-glow-text">WALLET CONNECTION</h1>
-            </div>
-            <p className="text-cyber-text-muted">Welcome, {userAuth?.username}</p>
-          </div>
-
-          <Card className="cyber-panel">
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2 text-cyber-text">
-                <Key className="w-5 h-5 text-cyber-secondary" />
-                <span>Connect Wallet</span>
-              </CardTitle>
-              <CardDescription className="text-cyber-text-muted">
-                Enter your private key to execute transactions
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <PrivateKeyInput onConnect={handlePrivateKeyConnect} />
-              <Button 
-                onClick={handleLogout}
-                variant="outline"
-                className="w-full mt-4 cyber-button-alt"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
-  // Main application interface
   return (
-    <Layout>
-      <div className="absolute top-4 right-4 z-50 flex items-center space-x-3">
-        <div className="flex items-center space-x-2 px-3 py-1.5 rounded bg-cyber-dark border border-cyber-accent/30 text-sm">
-          <Shield className="w-4 h-4 text-cyber-accent" />
-          <span className="text-cyber-text font-mono">{userAuth?.username}</span>
-          {userAuth?.isAdmin && (
-            <span className="px-2 py-0.5 bg-cyber-secondary text-cyber-dark text-xs rounded font-bold">ADMIN</span>
-          )}
-        </div>
-        {userAuth?.isAdmin && (
-          <Button 
-            onClick={() => navigate('/admin')}
-            variant="outline"
-            className="cyber-button-alt"
-          >
-            <Shield className="w-4 h-4 mr-2" />
-            Admin Panel
-          </Button>
-        )}
-        <Button 
-          onClick={handleLogout}
-          variant="outline"
-          className="cyber-button-alt"
-        >
-          <LogOut className="w-4 h-4 mr-2" />
-          Logout
-        </Button>
-      </div>
-
-      <div className="grid md:grid-cols-7 gap-6">
-        <div className="md:col-span-3 space-y-6">
-          <Card className="cyber-panel bg-cyber-dark border-cyber-accent/30">
-            <CardHeader>
-              <CardTitle className="text-xl font-mono cyber-glow-text">NFT Sniper Bot</CardTitle>
-              <CardDescription>
-                Enter an NFT contract address to interact with its functions
-                {chainId && (
-                  <span className="block mt-1 text-cyber-accent">
-                    Current network: {getNetworkName(chainId)}
-                  </span>
-                )}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ContractInputForm 
-                onSubmit={handleLoadContract}
-                isLoading={isLoadingContract}
-              />
-            </CardContent>
-          </Card>
-
-          <Card className="cyber-panel bg-cyber-dark border-cyber-accent/30">
-            <CardHeader>
-              <CardTitle className="text-lg font-mono">Transaction History</CardTitle>
-              {!privateKeySigner && (
-                <CardDescription className="text-amber-500">
-                  Connect with private key to execute transactions
-                </CardDescription>
-              )}
-              {privateKeySigner && (
-                <CardDescription className="text-green-500">
-                  Connected with private key
-                </CardDescription>
-              )}
-            </CardHeader>
-            <CardContent>
-              <TransactionHistory transactions={transactions} />
-              <ScheduledTransactions />
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Right column: function interaction */}
-        <div className="md:col-span-4">
-          <Card className="cyber-panel bg-cyber-dark border-cyber-accent/30">
-            <CardHeader>
-              <CardTitle className="text-xl font-mono">
-                {contractAddress ? (
-                  <div className="flex items-center gap-2">
-                    <span>
-                      {contractName || 'Smart Contract'}{' '}
-                      <span className="text-cyber-accent">
-                        {contractAddress.slice(0, 6)}...{contractAddress.slice(-4)}
-                      </span>
-                    </span>
-                    {contractAddress && (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <Info size={16} className="text-muted-foreground" />
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Contract Address: {contractAddress}</p>
-                            <p>Network: {getNetworkName(chainId)}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    )}
-                  </div>
-                ) : (
-                  "Contract Interaction"
-                )}
-              </CardTitle>
-              {contractAddress && (
-                <CardDescription>
-                  {writeFunctions.length} write functions, {readFunctions.length} read functions found
-                  {!privateKeySigner && (
-                    <span className="block mt-1 text-amber-500">
-                      Connect with private key to execute functions
-                    </span>
-                  )}
-                </CardDescription>
-              )}
-            </CardHeader>
-            <CardContent>
-              {!contractAddress ? (
-                <div className="p-6 text-center border border-dashed border-muted rounded-md">
-                  <p className="text-muted-foreground">
-                    Enter a contract address to get started
-                  </p>
-                </div>
-              ) : (
-                <Tabs defaultValue="write" className="space-y-4">
-                  <TabsList className="grid grid-cols-2 bg-cyber-dark border border-cyber-accent/30">
-                    <TabsTrigger value="write" className="font-mono">Write Functions</TabsTrigger>
-                    <TabsTrigger value="read" className="font-mono">Read Functions</TabsTrigger>
-                  </TabsList>
-                  
-                  <TabsContent value="write" className="space-y-4">
-                    <FunctionSelector 
-                      functions={writeFunctions}
-                      onSelect={handleSelectFunction}
-                      selectedFunction={selectedFunction}
-                    />
-                    
-                    {selectedFunction && selectedFunctionDetails && (
-                      <FunctionForm 
-                        functionSignature={selectedFunction}
-                        functionDetails={selectedFunctionDetails}
-                        onSubmit={handleExecuteFunction}
-                        onSchedule={handleScheduleTransaction}
-                        isLoading={isExecuting}
-                        walletRequired={true}
-                        walletConnected={!!privateKeySigner}
-                        contractAddress={contractAddress}
-                      />
-                    )}
-                  </TabsContent>
-                  
-                  <TabsContent value="read">
-                    <div className="cyber-panel bg-cyber-dark/50 p-3 text-sm">
-                      <p className="text-muted-foreground italic">
-                        Read functions coming soon...
-                      </p>
-                    </div>
-                  </TabsContent>
-                </Tabs>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </Layout>
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md bg-black/80 border-purple-500/30 text-white">
+        <CardHeader className="text-center">
+          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+            NFT Sniper Bot
+          </CardTitle>
+          <CardDescription className="text-gray-300">
+            Enter your access credentials to continue
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 bg-gray-800/50">
+              <TabsTrigger 
+                value="new" 
+                className="data-[state=active]:bg-purple-600 data-[state=active]:text-white"
+              >
+                New User
+              </TabsTrigger>
+              <TabsTrigger 
+                value="returning" 
+                className="data-[state=active]:bg-purple-600 data-[state=active]:text-white"
+              >
+                Returning User
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="new" className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-access-key" className="text-sm font-medium text-gray-300">
+                  Access Key
+                </Label>
+                <Input
+                  id="new-access-key"
+                  type="text"
+                  placeholder="Enter your access key"
+                  value={accessKey}
+                  onChange={(e) => setAccessKey(e.target.value)}
+                  className="bg-gray-800/50 border-purple-500/30 text-white placeholder-gray-400"
+                />
+              </div>
+              <Button 
+                onClick={handleNewUserAuth}
+                disabled={loading}
+                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+              >
+                {loading ? 'Authenticating...' : 'Access Bot'}
+              </Button>
+            </TabsContent>
+            
+            <TabsContent value="returning" className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label htmlFor="username" className="text-sm font-medium text-gray-300">
+                  Username
+                </Label>
+                <Input
+                  id="username"
+                  type="text"
+                  placeholder="Enter your username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="bg-gray-800/50 border-purple-500/30 text-white placeholder-gray-400"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="returning-access-key" className="text-sm font-medium text-gray-300">
+                  Access Key (Password)
+                </Label>
+                <Input
+                  id="returning-access-key"
+                  type="password"
+                  placeholder="Enter your access key"
+                  value={accessKey}
+                  onChange={(e) => setAccessKey(e.target.value)}
+                  className="bg-gray-800/50 border-purple-500/30 text-white placeholder-gray-400"
+                />
+              </div>
+              <Button 
+                onClick={handleReturningUserAuth}
+                disabled={loading}
+                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+              >
+                {loading ? 'Signing In...' : 'Sign In'}
+              </Button>
+            </TabsContent>
+          </Tabs>
+          
+          <div className="mt-6 p-4 bg-gray-800/30 rounded-lg border border-purple-500/20">
+            <p className="text-xs text-gray-400 mb-2">Test Credentials:</p>
+            <p className="text-xs text-purple-300">Admin: NK-ADMIN1234TESTKEY567</p>
+            <p className="text-xs text-purple-300">User: NK-USER9876TESTKEY543 (username: test_user)</p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
