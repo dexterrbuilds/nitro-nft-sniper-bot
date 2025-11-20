@@ -1,6 +1,6 @@
 # NITRO NFT Sniper Bot
 
-A powerful tool for interacting with NFT contracts on various blockchain networks, with a focus on Base Chain and Ape Chain.
+A powerful tool for interacting with NFT contracts on various EVM blockchain networks, with a focus on Base Chain and Ape Chain.
 
 ## Features
 
